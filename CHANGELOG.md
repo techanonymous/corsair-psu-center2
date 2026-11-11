@@ -1,7 +1,25 @@
 # Changelog
 
-All notable changes to **Corsair PSU Center**, newest first. This mirrors the in‑plugin
+All notable changes to **Corsair PSU Center v2** (and, below the first v2 entry, the original
+Corsair PSU Center it was forked from), newest first. This mirrors the in‑plugin
 changelog shown in Unraid's Community Applications. Versions are date‑based (`YYYY.MM.DD`).
+
+## 2026.11.11 (v2)
+First release of **Corsair PSU Center v2** by techanonymous, a fork of racoutlaw's
+Corsair PSU Center 2026.11.11. It's a separate plugin (`corsairpsucenter2`).
+- **New:** power history graph with 1h, 6h, 12h, 24h, 7d, 30d and 365d ranges, showing
+  wall power and PSU output with average, peak, kWh and cost for the range. Temperature
+  and Fans views as well.
+- **New:** power breakdown view. A stacked graph of CPU (RAPL), GPU (nvidia-smi /
+  amdgpu), drives (estimated), everything else and PSU losses, adding up to the wall draw.
+- **New:** alerts through Unraid notifications for VRM / case temperature, load, rail
+  voltage outside ATX tolerance, PSU fan stopped and PSU disconnected. Adjustable
+  limits and a test button.
+- **New:** system fans. Average RPM and fan count across the motherboard and any fan
+  controller with a Linux driver, with per-source include / exclude.
+- **New:** `build.sh` packs a release and updates the version and md5.
+- Installing v2 removes the original plugin and copies its settings and energy history
+  across. The old flash folder is kept as a backup.
 
 ## 2026.11.11
 - **Fixed:** on Unraid's dark themes (Black / Gray) the Corsair logo on the Dashboard
