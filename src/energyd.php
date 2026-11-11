@@ -16,9 +16,12 @@
  */
 
 require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/monitor.php';   // power/temp history + alerts ride on the same samples
 
-$SAMPLE = 10;    // seconds between samples
-$CKPT   = 300;   // seconds between flash checkpoints
+$SAMPLE   = 10;      // seconds between samples
+$CKPT     = 300;     // seconds between energy flash checkpoints
+$HRAM     = 30;      // seconds between history RAM (tmpfs) writes
+$HFLASH   = 10800;   // seconds between history flash writes (3 h; also written on stop)
 
 // ---- single instance (confirm the pid is really us) ----
 if (file_exists(CPC_EPID)) {
@@ -56,17 +59,36 @@ pcntl_async_signals(true);
 $stop = function () use (&$RUN) { $RUN = false; };
 pcntl_signal(SIGTERM, $stop);
 pcntl_signal(SIGINT,  $stop);
+$hist = hist_load();
+$alertSt = [];
+$bst = [];                               // breakdown counters (RAPL / disk I/O) between samples
+$cfg = read_config(); $cfgMtime = @filemtime(CFG_FILE);
+
 register_shutdown_function(function () {
+    global $hist;
     eflash();
+    hist_save($hist, true);
     if (file_exists(CPC_EPID) && trim(@file_get_contents(CPC_EPID)) == getmypid()) @unlink(CPC_EPID);
 });
 
 elive(); eflash();       // write both immediately so the UI has something
-$lastCkpt = time();
+$lastCkpt = time(); $lastHram = 0; $lastHflash = time();
 
 while ($RUN) {
     $now = time();
+    // settings.cfg is only re-parsed when it changes (alert thresholds, fan mode)
+    clearstatcache(true, CFG_FILE);
+    $m = @filemtime(CFG_FILE);
+    if ($m !== $cfgMtime) { $cfg = read_config(); $cfgMtime = $m; }
+
     $H = hwmon_path();
+    $sample = $H ? monitor_sample($H, $bst, microtime(true), fan_exclude_list($cfg)) : null;
+    if ($sample !== null) hist_add($hist, $now, $sample);
+    foreach (alert_step($alertSt, $sample, alert_config($cfg)) as $n) alert_notify($n[0], $n[1], $n[2]);
+    @file_put_contents(CPC_ALERTS, json_encode($alertSt));
+    if ($now - $lastHram >= $HRAM)     { hist_save($hist);       $lastHram = $now; }
+    if ($now - $lastHflash >= $HFLASH) { hist_save($hist, true); $lastHflash = $now; }
+
     if ($H) {
         $psu = detect_psu($H);
         list($pIn, $eff) = input_power($H, $psu);

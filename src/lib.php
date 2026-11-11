@@ -10,11 +10,13 @@
 
 if (!defined('CFG_DIR'))  define('CFG_DIR',  '/boot/config/plugins/corsairpsucenter2');
 if (!defined('CFG_FILE')) define('CFG_FILE', CFG_DIR . '/settings.cfg');
+if (!defined('CPC_RUN'))   define('CPC_RUN',  '/var/run');   // tmpfs: overridable for tests
+if (!defined('CPC_HWMON')) define('CPC_HWMON', '/sys/class/hwmon/hwmon*');
 define('CPC_EDIR',  CFG_DIR . '/energy');
 define('CPC_STATE', CPC_EDIR . '/state.json');
 define('CPC_DAILY', CPC_EDIR . '/daily.csv');
-define('CPC_EPID',  '/var/run/corsairpsucenter2-energyd.pid');
-define('CPC_LIVE',  '/var/run/corsairpsucenter2-energy.json');  // RAM (tmpfs): fresh copy for the UI, no flash wear
+define('CPC_EPID',  CPC_RUN . '/corsairpsucenter2-energyd.pid');
+define('CPC_LIVE',  CPC_RUN . '/corsairpsucenter2-energy.json');  // RAM (tmpfs): fresh copy for the UI, no flash wear
 
 /*
  * Known Corsair digital PSUs, keyed by USB HID product id (vendor is always
@@ -61,8 +63,17 @@ const PSU_MODELS = [
                'i230' => [4.634428233657273e-05,  1.0183515407387007, 16.559644350684962]],
 ];
 
+function read_config() {
+    $def = ['mode' => 'auto', 'fixed' => 40, 'curve' => '20,30 40,35 55,55 70,80 85,100',
+            'ocp' => 'unknown', 'rate' => 0, 'currency' => '$', 'currency_pos' => 'before', 'mains' => 'auto',
+            'customcurve' => '20,30 40,35 55,55 70,80 85,100'];
+    if (!file_exists(CFG_FILE)) return $def;
+    $c = @parse_ini_file(CFG_FILE);
+    return is_array($c) ? array_merge($def, $c) : $def;
+}
+
 function hwmon_path() {
-    foreach (glob('/sys/class/hwmon/hwmon*') as $h) {
+    foreach (glob(CPC_HWMON) as $h) {
         $n = @trim(file_get_contents("$h/name"));
         if ($n === 'corsairpsu') return $h;
     }
