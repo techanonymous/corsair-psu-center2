@@ -1,14 +1,16 @@
 <?xml version='1.0' standalone='yes'?>
 <!DOCTYPE PLUGIN [
-<!ENTITY name      "corsairpsucenter">
-<!ENTITY author    "racoutlaw">
+<!ENTITY name      "corsairpsucenter2">
+<!ENTITY author    "techanonymous">
 <!ENTITY version   "2026.11.11">
-<!ENTITY launch    "CorsairPSUCenter">
-<!ENTITY gitURL    "https://raw.githubusercontent.com/racoutlaw/corsair-psu-center/main">
+<!ENTITY launch    "CorsairPSUCenter2">
+<!ENTITY gitURL    "https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY source    "&gitURL;/archive/&name;-&version;-x86_64.txz">
 <!ENTITY md5       "045826d67ac020ef9797b40addca950d">
 <!ENTITY plugdir   "/boot/config/plugins/&name;">
+<!ENTITY oldname   "corsairpsucenter">
+<!ENTITY olddir    "/boot/config/plugins/&oldname;">
 ]>
 
 <PLUGIN name="&name;"
@@ -18,7 +20,7 @@
         launch="&launch;"
         icon="bolt"
         min="6.12.0"
-        support="https://forums.unraid.net/topic/200056-plugin-corsair-psu-center-icue-style-dashboard-and-fan-control-for-corsair-hxirmi-psus/">
+        support="https://github.com/techanonymous/corsair-psu-center2/issues">
 
 <CHANGES>
 ###2026.11.11
@@ -128,18 +130,59 @@
 # 1 - which Unraid treats as a fatal plugin error and aborts the whole install
 # (the package is never registered, and the plugin fails to reappear after a reboot).
 shopt -s nullglob
-if [ -f /var/run/corsairpsucenter-fand.pid ]; then
-  kill "$(cat /var/run/corsairpsucenter-fand.pid)" 2&gt;/dev/null
-  rm -f /var/run/corsairpsucenter-fand.pid
+if [ -f /var/run/&name;-fand.pid ]; then
+  kill "$(cat /var/run/&name;-fand.pid)" 2&gt;/dev/null
+  rm -f /var/run/&name;-fand.pid
 fi
-if [ -f /var/run/corsairpsucenter-energyd.pid ]; then
-  kill "$(cat /var/run/corsairpsucenter-energyd.pid)" 2&gt;/dev/null
-  rm -f /var/run/corsairpsucenter-energyd.pid
+if [ -f /var/run/&name;-energyd.pid ]; then
+  kill "$(cat /var/run/&name;-energyd.pid)" 2&gt;/dev/null
+  rm -f /var/run/&name;-energyd.pid
 fi
 for pkg in /var/lib/pkgtools/packages/&name;-*; do
   [ -e "$pkg" ] &amp;&amp; removepkg "$(basename "$pkg")" &gt;/dev/null 2&gt;&amp;1
 done
 # This block is best-effort cleanup only; never let its exit status abort the install.
+exit 0
+</INLINE>
+</FILE>
+
+<!-- replace v1: Corsair PSU Center v2 is a separate plugin (corsairpsucenter2), so the
+     original racoutlaw plugin (corsairpsucenter) is removed here - two plugins driving the
+     same PSU fan over USB would fight each other. Its settings and energy history are
+     copied across the first time (only if v2 has none yet), and its folder on the flash
+     is left in place untouched as a backup. -->
+<FILE Run="/bin/bash">
+<INLINE>
+shopt -s nullglob
+OLD=0
+[ -e "/boot/config/plugins/&oldname;.plg" ] &amp;&amp; OLD=1
+[ -e "/var/log/plugins/&oldname;.plg" ] &amp;&amp; OLD=1
+for pkg in /var/lib/pkgtools/packages/&oldname;-[0-9]*; do OLD=1; done
+if [ "$OLD" = 1 ]; then
+  echo "Removing the original Corsair PSU Center (v1) - v2 replaces it."
+  for p in fand energyd; do
+    if [ -f "/var/run/&oldname;-$p.pid" ]; then
+      kill "$(cat "/var/run/&oldname;-$p.pid")" 2&gt;/dev/null
+      rm -f "/var/run/&oldname;-$p.pid"
+    fi
+  done
+  sleep 1
+  # carry settings + energy history over, once (after v1's collector has flushed on stop)
+  if [ -d "&olddir;" ] &amp;&amp; [ ! -f "&plugdir;/settings.cfg" ] &amp;&amp; [ ! -d "&plugdir;/energy" ]; then
+    mkdir -p "&plugdir;"
+    [ -f "&olddir;/settings.cfg" ] &amp;&amp; cp -p "&olddir;/settings.cfg" "&plugdir;/settings.cfg"
+    [ -d "&olddir;/energy" ] &amp;&amp; cp -rp "&olddir;/energy" "&plugdir;/energy"
+    echo "  Copied your v1 settings and energy history to &plugdir;"
+  fi
+  # the [0-9] keeps this from ever matching our own corsairpsucenter2-* package
+  for pkg in /var/lib/pkgtools/packages/&oldname;-[0-9]*; do
+    removepkg "$(basename "$pkg")" &gt;/dev/null 2&gt;&amp;1
+  done
+  rm -rf "/usr/local/emhttp/plugins/&oldname;"
+  rm -f "/boot/config/plugins/&oldname;.plg" "/var/log/plugins/&oldname;.plg"
+  rm -f "&olddir;"/*.txz
+  echo "  v1 removed. Its folder &olddir; was kept as a backup."
+fi
 exit 0
 </INLINE>
 </FILE>
@@ -179,8 +222,8 @@ setsid /usr/bin/php /usr/local/emhttp/plugins/&name;/energyd.php &gt;/dev/null 2
 
 echo ""
 echo "-----------------------------------------------------------"
-echo " Corsair PSU Center &version; installed"
-echo " Open the 'CorsairPSUCenter' tab in the top menu."
+echo " Corsair PSU Center v2 &version; installed"
+echo " Open the 'Corsair PSU v2' tab in the top menu."
 echo "-----------------------------------------------------------"
 echo ""
 </INLINE>
@@ -191,14 +234,14 @@ echo ""
 <INLINE>
 shopt -s nullglob
 # stop the fan curve service and hand the fan back to the PSU firmware
-if [ -f /var/run/corsairpsucenter-fand.pid ]; then
-  kill "$(cat /var/run/corsairpsucenter-fand.pid)" 2&gt;/dev/null
-  rm -f /var/run/corsairpsucenter-fand.pid
+if [ -f /var/run/&name;-fand.pid ]; then
+  kill "$(cat /var/run/&name;-fand.pid)" 2&gt;/dev/null
+  rm -f /var/run/&name;-fand.pid
 fi
 # stop the energy collector
-if [ -f /var/run/corsairpsucenter-energyd.pid ]; then
-  kill "$(cat /var/run/corsairpsucenter-energyd.pid)" 2&gt;/dev/null
-  rm -f /var/run/corsairpsucenter-energyd.pid
+if [ -f /var/run/&name;-energyd.pid ]; then
+  kill "$(cat /var/run/&name;-energyd.pid)" 2&gt;/dev/null
+  rm -f /var/run/&name;-energyd.pid
 fi
 HW=""
 for h in /sys/class/hwmon/hwmon*; do
@@ -230,8 +273,8 @@ rm -rf "/usr/local/emhttp/plugins/&name;"
 # them straight back up. The glob is nullglob-guarded (set at the top of this block).
 for txz in "&plugdir;"/*.txz; do [ -e "$txz" ] &amp;&amp; rm -f "$txz"; done
 rm -f "/boot/config/plugins/&name;.plg"
-rm -f /var/run/corsairpsucenter-fand.pid
-echo "Corsair PSU Center removed."
+rm -f /var/run/&name;-fand.pid
+echo "Corsair PSU Center v2 removed."
 echo "Your settings and energy history were kept at &plugdir;"
 echo "(delete that folder by hand if you want to purge everything)."
 </INLINE>

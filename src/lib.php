@@ -1,6 +1,6 @@
 <?php
 /*
- * Corsair PSU Center - shared library.
+ * Corsair PSU Center v2 - shared library.
  *
  * PSU model table + sysfs helpers + input-power estimate + energy summary.
  * Included by the energy collector daemon (energyd.php) and by api.php.
@@ -8,13 +8,13 @@
  * python - it can run in every fan mode with near-zero cost.
  */
 
-if (!defined('CFG_DIR'))  define('CFG_DIR',  '/boot/config/plugins/corsairpsucenter');
+if (!defined('CFG_DIR'))  define('CFG_DIR',  '/boot/config/plugins/corsairpsucenter2');
 if (!defined('CFG_FILE')) define('CFG_FILE', CFG_DIR . '/settings.cfg');
 define('CPC_EDIR',  CFG_DIR . '/energy');
 define('CPC_STATE', CPC_EDIR . '/state.json');
 define('CPC_DAILY', CPC_EDIR . '/daily.csv');
-define('CPC_EPID',  '/var/run/corsairpsucenter-energyd.pid');
-define('CPC_LIVE',  '/var/run/corsairpsucenter-energy.json');  // RAM (tmpfs): fresh copy for the UI, no flash wear
+define('CPC_EPID',  '/var/run/corsairpsucenter2-energyd.pid');
+define('CPC_LIVE',  '/var/run/corsairpsucenter2-energy.json');  // RAM (tmpfs): fresh copy for the UI, no flash wear
 
 /*
  * Known Corsair digital PSUs, keyed by USB HID product id (vendor is always

@@ -1,6 +1,6 @@
 <Plugin>
 
-  <Name>Corsair PSU Center</Name>
+  <Name>Corsair PSU Center v2</Name>
 
   <Overview>
 An iCUE-style dashboard and fan control for Corsair HXi and RMi digital power supplies.
@@ -22,13 +22,13 @@ Note: these PSUs cannot store a fan curve in firmware, so custom curves are driv
 Tested on real hardware with an HX1000i. The other models share the same detection path but are untested - reports welcome.
   </Overview>
 
-  <PluginURL>https://raw.githubusercontent.com/racoutlaw/corsair-psu-center/main/corsairpsucenter.plg</PluginURL>
+  <PluginURL>https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main/corsairpsucenter2.plg</PluginURL>
 
-  <PluginAuthor>racoutlaw</PluginAuthor>
+  <PluginAuthor>techanonymous</PluginAuthor>
 
-  <Project>https://github.com/racoutlaw/corsair-psu-center</Project>
+  <Project>https://github.com/techanonymous/corsair-psu-center2</Project>
 
-  <ReadMe>https://raw.githubusercontent.com/racoutlaw/corsair-psu-center/main/README.md</ReadMe>
+  <ReadMe>https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main/README.md</ReadMe>
 
   <Category>Tools:System</Category>
 
@@ -36,6 +36,6 @@ Tested on real hardware with an HX1000i. The other models share the same detecti
 
   <License>GPLv2</License>
 
-  <Screenshot>https://raw.githubusercontent.com/racoutlaw/corsair-psu-center/main/docs/screenshot.png</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main/docs/screenshot.png</Screenshot>
 
 </Plugin>

@@ -1,6 +1,6 @@
 <?php
 /*
- * Corsair PSU Center - energy collector daemon.
+ * Corsair PSU Center v2 - energy collector daemon.
  *
  * Samples the PSU's estimated INPUT power (wall draw) from sysfs and integrates
  * it into watt-hours, persistently, so the dashboard can show usage + cost per

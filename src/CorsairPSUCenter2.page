@@ -1,6 +1,6 @@
 Menu="Tasks:75"
-Title="Corsair PSU"
-Icon="corsairpsucenter.png"
+Title="Corsair PSU v2"
+Icon="corsairpsucenter2.png"
 ---
 <style>
 /* Everything below is sized in em relative to #cpc's own font-size, so the
@@ -223,7 +223,7 @@ Icon="corsairpsucenter.png"
 
 <script>
 (function(){
-const API = '/plugins/corsairpsucenter/api.php';
+const API = '/plugins/corsairpsucenter2/api.php';
 
 const TILES = [
   {k:'fan_rpm',   l:'Fan',            u:'RPM', c:'#6fa8dc', d:0},
@@ -665,11 +665,11 @@ document.getElementById('curAfter').onclick  = ()=> applyCurrency(lastCur, 'afte
 
 // ---- text size (persisted per browser) ----
 const app = document.getElementById('cpc');
-let scale = parseFloat(localStorage.getItem('cpcScale') || '1');
+let scale = parseFloat(localStorage.getItem('cpc2Scale') || '1');
 function applyScale(){
   scale = Math.max(0.8, Math.min(2.0, Math.round(scale*100)/100));
   app.style.setProperty('--cpc-scale', scale);
-  localStorage.setItem('cpcScale', scale);
+  localStorage.setItem('cpc2Scale', scale);
 }
 document.getElementById('zIn').onclick  = ()=>{ scale += 0.1; applyScale(); };
 document.getElementById('zOut').onclick = ()=>{ scale -= 0.1; applyScale(); };

@@ -1,6 +1,6 @@
 <?php
 /*
- * Corsair PSU Center - backend API
+ * Corsair PSU Center v2 - backend API
  *
  * Telemetry comes from the kernel corsair-psu hwmon driver (sysfs) - instant,
  * no USB contention, no python startup cost.
@@ -21,9 +21,9 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/lib.php';   // CFG_DIR/CFG_FILE, PSU_MODELS, hwmon_path(), detect_psu(), rd(), input_power(), energy_*()
 
-define('PID_FILE', '/var/run/corsairpsucenter-fand.pid');
-define('DAEMON',   '/usr/local/emhttp/plugins/corsairpsucenter/fand.sh');
-define('ENERGYD',  '/usr/local/emhttp/plugins/corsairpsucenter/energyd.php');
+define('PID_FILE', '/var/run/corsairpsucenter2-fand.pid');
+define('DAEMON',   '/usr/local/emhttp/plugins/corsairpsucenter2/fand.sh');
+define('ENERGYD',  '/usr/local/emhttp/plugins/corsairpsucenter2/energyd.php');
 
 function read_config() {
     $def = ['mode' => 'auto', 'fixed' => 40, 'curve' => '20,30 40,35 55,55 70,80 85,100',
@@ -52,8 +52,8 @@ function liquidctl($args, $psu, $maxAttempts = 5) {
     if ($psu && $psu['vendor'] !== null && $psu['product'] !== null) {
         $sel = sprintf('--vendor 0x%04x --product 0x%04x', $psu['vendor'], $psu['product']);
     }
-    $py = is_executable('/usr/local/emhttp/plugins/corsairpsucenter/py/bin/python3')
-        ? '/usr/local/emhttp/plugins/corsairpsucenter/py/bin/python3' : 'python3';
+    $py = is_executable('/usr/local/emhttp/plugins/corsairpsucenter2/py/bin/python3')
+        ? '/usr/local/emhttp/plugins/corsairpsucenter2/py/bin/python3' : 'python3';
     $base = "$py -m liquidctl $sel";
     $text = '';
     for ($i = 1; $i <= $maxAttempts; $i++) {

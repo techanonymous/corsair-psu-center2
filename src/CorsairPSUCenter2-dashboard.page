@@ -1,26 +1,26 @@
 Menu="Dashboard:0"
-Icon="corsairpsucenter.png"
+Icon="corsairpsucenter2.png"
 Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'6.12.0','>=')"
 ---
 <?php
-/* Corsair PSU Center - dashboard tile.
+/* Corsair PSU Center v2 - dashboard tile.
    A compact PSU readout for Unraid's main Dashboard. Rendered client-side by the
    inline script below, which polls the plugin's EXISTING api.php endpoints
    (status + energy) - no new backend and no extra background collector. */
-$mytiles['corsairpsucenter']['column1'] = <<<EOT
-<tbody id="tblCpcDash" title="_(Corsair PSU Center)_">
+$mytiles['corsairpsucenter2']['column1'] = <<<EOT
+<tbody id="tblCpc2Dash" title="_(Corsair PSU Center v2)_">
 <tr>
   <td>
     <span class="tile-header">
       <span class="tile-header-left">
-        <img class="cpc-logo" src="/plugins/corsairpsucenter/icons/corsairpsucenter.png" alt="" style="width:32px;height:32px">
-        <div class="section">_(Corsair PSU)_<br>
+        <img class="cpc-logo" src="/plugins/corsairpsucenter2/icons/corsairpsucenter2.png" alt="" style="width:32px;height:32px">
+        <div class="section">_(Corsair PSU v2)_<br>
           <span id="cpc-dash-sub">_(Loading)_&hellip;</span>
         </div>
       </span>
       <span class="tile-header-right">
         <span class="tile-header-right-controls">
-          <a href="/CorsairPSUCenter" title="_(Open Corsair PSU Center)_" aria-label="_(Open Corsair PSU Center)_">
+          <a href="/CorsairPSUCenter2" title="_(Open Corsair PSU Center v2)_" aria-label="_(Open Corsair PSU Center v2)_">
             <i class="fa fa-fw fa-external-link control" aria-hidden="true"></i>
           </a>
         </span>
@@ -38,23 +38,23 @@ $mytiles['corsairpsucenter']['column1'] = <<<EOT
 EOT;
 ?>
 <style>
-#tblCpcDash span[id^="cpc-dash-"]{font-variant-numeric:tabular-nums}
-#tblCpcDash .w36{display:inline-block}
+#tblCpc2Dash span[id^="cpc-dash-"]{font-variant-numeric:tabular-nums}
+#tblCpc2Dash .w36{display:inline-block}
 /* The Corsair logo PNG is solid black, so it disappears on Unraid's dark themes
    (black / gray). On those, render it as a white silhouette; light themes
    (white / azure) keep the original black. Keyed off the theme class Unraid puts
    on <html>, so it also follows a live theme switch. */
-html.Theme--black #tblCpcDash .cpc-logo,
-html.Theme--gray  #tblCpcDash .cpc-logo{filter:brightness(0) invert(1)}
+html.Theme--black #tblCpc2Dash .cpc-logo,
+html.Theme--gray  #tblCpc2Dash .cpc-logo{filter:brightness(0) invert(1)}
 </style>
 <script>
 (function(){
-  var API='/plugins/corsairpsucenter/api.php';
+  var API='/plugins/corsairpsucenter2/api.php';
   var cur='$', pos='before', rate=0;
   function money(a){ var s=(Number(a)||0).toFixed(2); return pos==='after'?(s+' '+cur):(cur+s); }
   function f(v,d){ return (v===null||v===undefined)?'--':Number(v).toFixed(d); }
   function g(id){ return document.getElementById(id); }
-  function alive(){ return !!g('tblCpcDash'); }
+  function alive(){ return !!g('tblCpc2Dash'); }
   function doStatus(){
     fetch(API+'?action=status').then(function(r){return r.json();}).then(function(s){
       if(!alive()) return;
