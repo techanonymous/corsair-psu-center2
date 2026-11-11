@@ -31,6 +31,7 @@ $mytiles['corsairpsucenter2']['column1'] = <<<EOT
 <tr><td><span class="w36"><i class="fa fa-fw fa-bolt"></i>_(Power / Load / Eff)_</span><span id="cpc-dash-pwr">--</span></td></tr>
 <tr><td><span class="w36"><i class="fa fa-fw fa-thermometer-half"></i>_(VRM / Case temp)_</span><span id="cpc-dash-temp">--</span></td></tr>
 <tr><td><span class="w36"><i class="fa fa-fw icon-fan"></i>_(Fan)_</span><span id="cpc-dash-fan">--</span></td></tr>
+<tr><td><span class="w36"><i class="fa fa-fw icon-fan"></i>_(System fans)_</span><span id="cpc-dash-sfan">--</span></td></tr>
 <tr><td><span class="w36"><i class="fa fa-fw fa-plug"></i>_(Today)_</span><span id="cpc-dash-today">--</span></td></tr>
 <tr><td><span class="w36"><i class="fa fa-fw fa-calendar-o"></i>_(This month)_</span><span id="cpc-dash-month">--</span></td></tr>
 <tr><td><span class="w36"><i class="fa fa-fw fa-history"></i>_(Lifetime)_</span><span id="cpc-dash-life">--</span></td></tr>
@@ -59,13 +60,15 @@ html.Theme--gray  #tblCpc2Dash .cpc-logo{filter:brightness(0) invert(1)}
     fetch(API+'?action=status').then(function(r){return r.json();}).then(function(s){
       if(!alive()) return;
       if(!s.connected){ g('cpc-dash-sub').textContent='PSU not found'; return; }
-      g('cpc-dash-sub').textContent = s.model || 'Corsair PSU';
+      var al = (s.alerts||[]).length;
+      g('cpc-dash-sub').textContent = (s.model || 'Corsair PSU') + (al ? (' · ⚠ '+al+' alert'+(al>1?'s':'')) : '');
       var eff  = (s.efficiency===null||s.efficiency===undefined)?'n/a':f(s.efficiency,1)+'%';
       var load = (s.load_pct===null||s.load_pct===undefined)?'n/a':f(s.load_pct,1)+'%';
       g('cpc-dash-pwr').textContent  = f(s.power_out,0)+' W · '+load+' · '+eff;
       g('cpc-dash-temp').textContent = f(s.temp_vrm,1)+'°C · '+f(s.temp_case,1)+'°C';
       var mode = s.fan_mode==='auto'?'Default':(s.fan_mode==='fixed'?('Fixed '+s.fan_fixed+'%'):'Curve');
       g('cpc-dash-fan').textContent  = f(s.fan_rpm,0)+' RPM · '+mode;
+      g('cpc-dash-sfan').textContent = s.sys_fan_rpm ? (Number(s.sys_fan_rpm).toLocaleString()+' RPM avg · '+s.sys_fan_count+' fans') : 'none found';
     }).catch(function(){});
   }
   function doEnergy(){

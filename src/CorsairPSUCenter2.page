@@ -98,6 +98,34 @@ Icon="corsairpsucenter2.png"
 .cpc-cur-input { width:100%; background:#22262e; color:#e8eaed; border:1px solid #39404b; border-radius:4px;
                  padding:.4em .6em; font-size:.95em; margin-bottom:.55em; }
 .cpc-cur-input:focus { outline:none; border-color:#f0c040; background:#22262e; color:#e8eaed; }
+/* ---- v2: power history chart, alerts, system fans ---- */
+.cpc-alerts { margin-bottom:.9em; }
+.cpc-alert { display:flex; gap:.7em; align-items:flex-start; border-radius:5px; padding:.6em .8em; margin-bottom:.4em;
+             background:#3a2a14; border:1px solid #6b4a1a; color:#f0c88a; font-size:.95em; }
+.cpc-alert.alert { background:#3a1e1e; border-color:#6b2a2a; color:#f0a0a0; }
+.cpc-alert b { color:#fff; font-weight:600; }
+.cpc-alert .when { margin-left:auto; color:#9aa0a8; font-size:.85em; white-space:nowrap; }
+.cpc-tabs { display:flex; flex-wrap:wrap; gap:.3em; margin-bottom:.55em; align-items:center; }
+.cpc-tabs .cpc-btn { margin:0; }
+.cpc-tabs .sep { width:1px; height:1.6em; background:#2a2f38; margin:0 .4em; }
+.cpc-chartwrap { position:relative; }
+#histSvg { width:100%; height:18em; display:block; }
+#histSvg text { font-family:inherit; }
+.cpc-tip { position:absolute; pointer-events:none; background:#0f1115ee; border:1px solid #39404b; border-radius:4px;
+           padding:.45em .6em; font-size:.82em; line-height:1.45; white-space:nowrap; display:none; z-index:2; }
+.cpc-tip .sw { display:inline-block; width:.7em; height:.7em; border-radius:2px; margin-right:.4em; vertical-align:-.05em; }
+.cpc-legend { display:flex; flex-wrap:wrap; gap:.4em 1.1em; font-size:.85em; color:#b2b8c0; margin-top:.45em; }
+.cpc-legend .sw { display:inline-block; width:.8em; height:.8em; border-radius:2px; margin-right:.35em; vertical-align:-.08em; }
+.cpc-hstats { font-size:.92em; color:#9aa0a8; margin:.1em 0 .5em; line-height:1.6; min-height:1.6em; }
+.cpc-hstats b { color:#e8eaed; font-weight:600; font-variant-numeric:tabular-nums; }
+.cpc-field { display:flex; align-items:center; justify-content:space-between; gap:.5em; font-size:.92em; color:#b2b8c0; padding:.22em 0; }
+.cpc-field input[type=number] { width:4.6em; background:#22262e; color:#e8eaed; border:1px solid #39404b; border-radius:4px;
+           padding:.25em .4em; font-size:.95em; text-align:right; }
+.cpc-field input[type=checkbox] { accent-color:#f0c040; width:1.05em; height:1.05em; }
+.cpc-fansrc { font-size:.88em; color:#9aa0a8; padding:.3em 0; border-top:1px solid #23272f; }
+.cpc-fansrc label { display:flex; align-items:center; gap:.45em; color:#d2d6dc; font-weight:600; cursor:pointer; }
+.cpc-fansrc .fl { padding-left:1.6em; display:flex; justify-content:space-between; }
+.cpc-fansrc.off .fl, .cpc-fansrc.off label span { opacity:.5; }
 </style>
 
 <div id="cpc">
@@ -129,6 +157,7 @@ Icon="corsairpsucenter2.png"
         <div class="cpc-row"><span>Efficiency</span><b id="sEff">--</b></div>
         <div class="cpc-row"><span>Fan</span><b id="sFan">--</b></div>
         <div class="cpc-row"><span>Fan mode</span><b id="sMode">--</b></div>
+        <div class="cpc-row"><span>System fans</span><b id="sSysFan">--</b></div>
       </div>
 
       <div class="cpc-card">
@@ -152,6 +181,33 @@ Icon="corsairpsucenter2.png"
       </div>
 
       <div class="cpc-card">
+        <h3>Alerts</h3>
+        <div class="cpc-field"><span>Send Unraid notifications</span><input type="checkbox" id="alOn"></div>
+        <div class="cpc-field"><span>VRM temp above (&deg;C)</span><input type="number" id="alVrm" min="30" max="120"></div>
+        <div class="cpc-field"><span>Case temp above (&deg;C)</span><input type="number" id="alCase" min="25" max="100"></div>
+        <div class="cpc-field"><span>Load above (%)</span><input type="number" id="alLoad" min="10" max="120"></div>
+        <div class="cpc-field"><span>Rail voltage out of ATX spec (&plusmn;5%)</span><input type="checkbox" id="alRails"></div>
+        <div class="cpc-field"><span>PSU fan stopped when it shouldn't be</span><input type="checkbox" id="alFan"></div>
+        <div class="cpc-field"><span>PSU disconnected</span><input type="checkbox" id="alDisc"></div>
+        <div style="margin-top:.5em">
+          <button class="cpc-btn" id="alSave">Save</button>
+          <button class="cpc-btn" id="alTest">Send test</button>
+        </div>
+        <div class="cpc-note">A problem has to last 30 seconds before it notifies, and you get one notice when it
+        starts and one when it clears. Notices go to Unraid's bell and any email or push agents you've set up
+        under Settings &rarr; Notifications.</div>
+      </div>
+
+      <div class="cpc-card">
+        <h3>System Fans</h3>
+        <div class="cpc-row"><span>Average</span><b id="sfAvg">--</b></div>
+        <div id="sfList"></div>
+        <div class="cpc-note">Every fan Unraid can see: the motherboard and any fan controller with a Linux driver
+        (Commander Pro, NZXT, Aquacomputer&hellip;). The PSU's own fan isn't included. Untick a source to leave it
+        out of the average. Fans at 0 RPM aren't counted.</div>
+      </div>
+
+      <div class="cpc-card">
         <h3>Currency</h3>
         <select class="cpc-select" id="curSelect" style="width:100%;min-width:0;margin-bottom:.55em"></select>
         <input type="text" id="curCustom" class="cpc-cur-input" maxlength="4" placeholder="Symbol, e.g. Fr" hidden>
@@ -166,7 +222,33 @@ Icon="corsairpsucenter2.png"
     </div>
 
     <div class="cpc-main">
+      <div class="cpc-alerts" id="alertBox"></div>
       <div class="cpc-grid" id="tiles"></div>
+
+      <div class="cpc-card" id="phCard" style="margin-top:12px">
+        <h3>Power History</h3>
+        <div class="cpc-tabs" id="phRange">
+          <button class="cpc-btn" data-r="1h">1h</button>
+          <button class="cpc-btn" data-r="6h">6h</button>
+          <button class="cpc-btn" data-r="12h">12h</button>
+          <button class="cpc-btn active" data-r="24h">24h</button>
+          <button class="cpc-btn" data-r="7d">7d</button>
+          <button class="cpc-btn" data-r="30d">30d</button>
+          <button class="cpc-btn" data-r="365d">365d</button>
+          <span class="sep"></span>
+          <button class="cpc-btn active" data-v="power">Power</button>
+          <button class="cpc-btn" data-v="breakdown">Breakdown</button>
+          <button class="cpc-btn" data-v="temp">Temperature</button>
+          <button class="cpc-btn" data-v="fans">Fans</button>
+        </div>
+        <div class="cpc-hstats" id="phStats"></div>
+        <div class="cpc-chartwrap">
+          <svg id="histSvg"></svg>
+          <div class="cpc-tip" id="phTip"></div>
+        </div>
+        <div class="cpc-legend" id="phLegend"></div>
+        <div class="cpc-note" id="phNote"></div>
+      </div>
 
       <div class="cpc-card" id="histCard" style="margin-top:12px">
         <h3>Energy History</h3>
@@ -372,6 +454,7 @@ function refresh(){
     document.getElementById('sMode').textContent   =
       s.fan_mode==='auto' ? 'Default' : (s.fan_mode==='fixed' ? 'Fixed '+s.fan_fixed+'%' : curveName(s.fan_curve));
     document.getElementById('sOcp').textContent    = s.ocp_mode;
+    applyV2Status(s);
     setMainsButtons(s.mains||'auto');
 
     TILES.forEach(t=>{
@@ -662,6 +745,220 @@ document.getElementById('curCustom').onchange = e=>{
 };
 document.getElementById('curBefore').onclick = ()=> applyCurrency(lastCur, 'before');
 document.getElementById('curAfter').onclick  = ()=> applyCurrency(lastCur, 'after');
+
+
+// ---- v2: alerts banner + settings, system fans ----
+const q = id => document.getElementById(id);
+function esc(t){ return String(t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let alertFormLoaded = false, fanExclude = [];
+function applyV2Status(s){
+  // system fans
+  q('sSysFan').textContent = s.sys_fan_rpm ? (Number(s.sys_fan_rpm).toLocaleString()+' RPM · '+s.sys_fan_count+' fan'+(s.sys_fan_count==1?'':'s')) : 'none found';
+  q('sfAvg').textContent = s.sys_fan_rpm ? (Number(s.sys_fan_rpm).toLocaleString()+' RPM across '+s.sys_fan_count+' fan'+(s.sys_fan_count==1?'':'s')) : '--';
+  fanExclude = s.fan_exclude || [];
+  const list = q('sfList');
+  if (!list.contains(document.activeElement)) {
+    list.innerHTML = (s.sys_fan_sources||[]).map(src=>`
+      <div class="cpc-fansrc${src.included?'':' off'}">
+        <label><input type="checkbox" data-src="${esc(src.name)}" ${src.included?'checked':''}><span>${esc(src.name)}</span></label>
+        ${src.fans.map(f=>`<div class="fl"><span>${esc(f.label)}</span><span>${f.rpm>0?Number(f.rpm).toLocaleString()+' RPM':'off'}</span></div>`).join('')}
+      </div>`).join('') || '<div class="cpc-note">No fan sensors found.</div>';
+    list.querySelectorAll('input[data-src]').forEach(cb=>cb.onchange = ()=>{
+      const n = cb.dataset.src;
+      let ex = fanExclude.filter(x=>x!==n);
+      if (!cb.checked) ex.push(n);
+      post({action:'setfanexclude', exclude:ex.join(',')}).then(r=>{ if(r.ok){ fanExclude=ex; refresh(); } else msg(false,'Could not save.'); });
+    });
+  }
+  // active alerts
+  const al = s.alerts || [];
+  q('alertBox').innerHTML = al.map(a=>`<div class="cpc-alert ${a.level==='alert'?'alert':''}">
+      <span>&#9888;</span><span><b>${esc(a.subject)}</b> &mdash; ${esc(a.desc)}</span>
+      <span class="when">since ${new Date(a.since*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>`).join('');
+  // alert settings form: fill once, then leave it alone while the user edits
+  if (!alertFormLoaded && s.alert_cfg) {
+    const c = s.alert_cfg;
+    q('alOn').checked = !!c.enabled; q('alVrm').value = c.vrm; q('alCase').value = c.case; q('alLoad').value = c.load;
+    q('alRails').checked = !!c.rails; q('alFan').checked = !!c.fan; q('alDisc').checked = !!c.disconnect;
+    alertFormLoaded = true;
+  }
+}
+q('alSave').onclick = ()=>{
+  const b = el => el.checked ? '1' : '0';
+  post({action:'setalerts', alerts:b(q('alOn')), alert_vrm:q('alVrm').value, alert_case:q('alCase').value,
+        alert_load:q('alLoad').value, alert_rails:b(q('alRails')), alert_fan:b(q('alFan')), alert_disconnect:b(q('alDisc'))})
+    .then(r=>{ if (r.ok){ alertFormLoaded=false; msg(true,'Alert settings saved.'); refresh(); } else msg(false,'Could not save alert settings.'); });
+};
+q('alTest').onclick = ()=> post({action:'testalert'}).then(r=> msg(r.ok, r.output||'Failed.'));
+
+// ---- v2: power history chart ----
+let phRange = '24h', phView = 'power', phData = null;
+try { phRange = localStorage.getItem('cpc2Range') || phRange; phView = localStorage.getItem('cpc2View') || phView; } catch(e){}
+const C = {pin:'#b98ee6', pout:'#f0c040', cpu:'#6fa8dc', gpu:'#6fc26f', drv:'#e0904a', other:'#7a8089', loss:'#d05353',
+           vrm:'#e0904a', vrmx:'#f0c040', case:'#6fa8dc', fan:'#6fa8dc', sfan:'#6fc26f'};
+// row columns from api: ts pout pout_max pin vrm vrm_max case fan cpu gpu drv sfan nfan
+const I = {ts:0, pout:1, poutx:2, pin:3, vrm:4, vrmx:5, case:6, fan:7, cpu:8, gpu:9, drv:10, sfan:11, nfan:12};
+const v = (r,k) => (r[I[k]]===undefined ? null : r[I[k]]);
+
+function phSeries(rows){
+  // returns {unit, stacked, series:[{key,label,color,val(r),dash,area}]}
+  if (phView==='temp') return {unit:'°C', series:[
+    {key:'vrm',  label:'VRM (avg)', color:C.vrm,  val:r=>v(r,'vrm')},
+    {key:'vrmx', label:'VRM (peak)',color:C.vrmx, val:r=>v(r,'vrmx'), dash:true},
+    {key:'case', label:'Case',      color:C.case, val:r=>v(r,'case')}]};
+  if (phView==='fans') return {unit:'RPM', series:[
+    {key:'fan',  label:'PSU fan',            color:C.fan,  val:r=>v(r,'fan')},
+    {key:'sfan', label:'System fans (avg)',  color:C.sfan, val:r=>v(r,'sfan'), extra:r=> v(r,'nfan')!==null ? ' · '+v(r,'nfan')+' fans' : ''}]};
+  if (phView==='breakdown') {
+    const has = k => rows.some(r=>v(r,k)!==null);
+    const known = r => (v(r,'cpu')||0)+(v(r,'gpu')||0)+(v(r,'drv')||0);
+    const ser = [];
+    if (has('cpu')) ser.push({key:'cpu', label:'CPU', color:C.cpu, val:r=>v(r,'cpu')});
+    if (has('gpu')) ser.push({key:'gpu', label:'GPU', color:C.gpu, val:r=>v(r,'gpu')});
+    if (has('drv')) ser.push({key:'drv', label:'Drives (estimated)', color:C.drv, val:r=>v(r,'drv')});
+    ser.push({key:'other', label:'Everything else', color:C.other, val:r=> v(r,'pout')===null?null:Math.max(0, v(r,'pout')-known(r))});
+    if (has('pin')) ser.push({key:'loss', label:'PSU losses', color:C.loss, val:r=> (v(r,'pin')===null||v(r,'pout')===null)?null:Math.max(0, v(r,'pin')-v(r,'pout'))});
+    return {unit:'W', stacked:true, series:ser};
+  }
+  return {unit:'W', series:[
+    {key:'pin',  label:'Power in (wall, estimated)', color:C.pin,  val:r=>v(r,'pin'), area:true},
+    {key:'pout', label:'Power out (DC)',             color:C.pout, val:r=>v(r,'pout')}]};
+}
+
+function fmtTick(ts){
+  const d = new Date(ts*1000);
+  if (['1h','6h','12h','24h'].includes(phRange)) return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  if (phRange==='365d') return d.toLocaleDateString([], {month:'short', year:'2-digit'});
+  return d.toLocaleDateString([], {month:'short', day:'numeric'});
+}
+function fmtTip(ts){
+  const d = new Date(ts*1000);
+  if (phRange==='365d') return d.toLocaleDateString([], {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+  return d.toLocaleString([], {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+}
+function niceMax(x){ if (!(x>0)) return 1; const p=Math.pow(10, Math.floor(Math.log10(x))); for (const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if (m*p>=x) return m*p; return 10*p; }
+
+function drawHist(){
+  const svg = q('histSvg'); if (!svg || !phData) return;
+  const W = Math.max(300, svg.clientWidth), H = Math.max(160, svg.clientHeight);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const L=50, R=W-12, T=10, B=H-24;
+  const rows = phData.rows || [], step = phData.step, from = phData.from, to = phData.to;
+  const sp = phSeries(rows);
+  const X = ts => L + (ts - from) / (to - from) * (R - L);
+  // values (stacked => cumulative)
+  const vals = rows.map(r=>{
+    let acc = 0;
+    return sp.series.map(s=>{ const x = s.val(r); if (!sp.stacked) return x; if (x===null) return null; acc += x; return acc; });
+  });
+  let ymax = 0;
+  vals.forEach(a=>a.forEach(x=>{ if (x!==null && x>ymax) ymax=x; }));
+  ymax = niceMax(ymax*1.05);
+  const Y = y => B - (y/ymax)*(B-T);
+  let h = `<rect x="${L}" y="${T}" width="${R-L}" height="${B-T}" fill="#14161a"/>`;
+  for (let i=0;i<=4;i++){
+    const y = ymax*i/4;
+    h += `<line x1="${L}" y1="${Y(y)}" x2="${R}" y2="${Y(y)}" stroke="#262b33"/>`;
+    h += `<text x="${L-6}" y="${Y(y)+4}" fill="#6c727b" font-size="11" text-anchor="end">${y>=1000?(y/1000).toFixed(y%1000?1:0)+'k':Math.round(y)}</text>`;
+  }
+  const unitTxt = `<text x="${L+6}" y="${T+14}" fill="#8a9099" font-size="11">${sp.unit}</text>`;
+  const nt = Math.max(2, Math.min(8, Math.floor((R-L)/110)));
+  let lastLbl = '';
+  for (let i=0;i<=nt;i++){
+    const ts = from + (to-from)*i/nt, x = X(ts), lbl = fmtTick(ts);
+    h += `<line x1="${x}" y1="${T}" x2="${x}" y2="${B}" stroke="#1f232a"/>`;
+    if (lbl === lastLbl) continue;
+    lastLbl = lbl;
+    h += `<text x="${x}" y="${B+16}" fill="#6c727b" font-size="11" text-anchor="${i==0?'start':(i==nt?'end':'middle')}">${fmtTick(ts)}</text>`;
+  }
+  // split into runs wherever buckets are missing (server off, PSU gone)
+  const runs = []; let cur = [];
+  rows.forEach((r,i)=>{ if (cur.length && r[0]-rows[cur[cur.length-1]][0] > step*2.5){ runs.push(cur); cur=[]; } cur.push(i); });
+  if (cur.length) runs.push(cur);
+  const xOf = i => X(rows[i][0] + (step>=86400 ? 0 : step/2));
+  sp.series.forEach((s,si)=>{
+    runs.forEach(run=>{
+      const pts = run.filter(i=>vals[i][si]!==null).map(i=>[xOf(i), Y(vals[i][si])]);
+      if (!pts.length) return;
+      const line = pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+      if (sp.stacked){
+        const base = run.filter(i=>vals[i][si]!==null).map(i=>{
+          let b = 0; for (let k=si-1;k>=0;k--) if (vals[i][k]!==null){ b = vals[i][k]; break; }
+          return [xOf(i), Y(b)];
+        }).reverse().map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+        h += `<polygon points="${line} ${base}" fill="${s.color}" fill-opacity=".55" stroke="none"/>`;
+        h += `<polyline points="${line}" fill="none" stroke="${s.color}" stroke-width="1.2"/>`;
+      } else {
+        if (s.area) h += `<polygon points="${pts[0][0].toFixed(1)},${B} ${line} ${pts[pts.length-1][0].toFixed(1)},${B}" fill="${s.color}" fill-opacity=".14"/>`;
+        if (pts.length===1) h += `<circle cx="${pts[0][0]}" cy="${pts[0][1]}" r="2.5" fill="${s.color}"/>`;
+        h += `<polyline points="${line}" fill="none" stroke="${s.color}" stroke-width="1.8"${s.dash?' stroke-dasharray="5 4"':''}/>`;
+      }
+    });
+  });
+  if (!rows.length) h += `<text x="${(L+R)/2}" y="${(T+B)/2}" fill="#7c828b" font-size="13" text-anchor="middle">No data for this range yet - it fills in as the collector runs.</text>`;
+  h += unitTxt;
+  h += `<line id="phCursor" x1="0" y1="${T}" x2="0" y2="${B}" stroke="#e8eaed55" visibility="hidden"/>`;
+  svg.innerHTML = h;
+
+  q('phLegend').innerHTML = sp.series.map(s=>`<span><span class="sw" style="background:${s.color}"></span>${s.label}</span>`).join('');
+
+  // hover tooltip
+  const tip = q('phTip');
+  svg.onmousemove = e=>{
+    if (!rows.length) return;
+    const rc = svg.getBoundingClientRect(), mx = (e.clientX-rc.left) * W / rc.width;
+    let best = 0, bd = 1e9;
+    rows.forEach((r,i)=>{ const d = Math.abs(xOf(i)-mx); if (d<bd){ bd=d; best=i; } });
+    const r = rows[best], cx = xOf(best);
+    const cl = q('phCursor'); cl.setAttribute('x1',cx); cl.setAttribute('x2',cx); cl.setAttribute('visibility','visible');
+    let t = `<div style="color:#9aa0a8;margin-bottom:.15em">${fmtTip(r[0])}</div>`;
+    sp.series.slice().reverse().forEach(s=>{
+      const x = s.val(r); if (x===null) return;
+      t += `<div><span class="sw" style="background:${s.color}"></span>${s.label}: <b>${sp.unit==='RPM'?Math.round(x).toLocaleString():Number(x).toFixed(1)} ${sp.unit}</b>${s.extra?s.extra(r):''}</div>`;
+    });
+    if (sp.stacked && v(r,'pin')!==null) t += `<div style="margin-top:.15em;color:#9aa0a8">Total at the wall: <b style="color:#e8eaed">${Number(v(r,'pin')).toFixed(1)} W</b></div>`;
+    tip.innerHTML = t; tip.style.display = 'block';
+    const px = cx / W * rc.width, tw = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(rc.width - tw, px + 14 > rc.width - tw ? px - tw - 14 : px + 14)) + 'px';
+    tip.style.top = '0.4em';
+  };
+  svg.onmouseleave = ()=>{ tip.style.display='none'; const cl=q('phCursor'); if (cl) cl.setAttribute('visibility','hidden'); };
+
+  // summary line
+  const st = phData.stats || {}, f0 = x => x===null||x===undefined ? '--' : Math.round(x).toLocaleString();
+  let sh = '';
+  if (phView==='temp')       sh = st.vrm ? `VRM <b>${st.vrm.avg.toFixed(1)}°C</b> avg · <b>${st.vrm.max.toFixed(1)}°C</b> peak` + (st.case ? ` &nbsp; Case <b>${st.case.avg.toFixed(1)}°C</b> avg · <b>${st.case.max.toFixed(1)}°C</b> peak` : '') : '';
+  else if (phView==='fans')  sh = (st.fan ? `PSU fan <b>${f0(st.fan.avg)} RPM</b> avg` : '') + (st.sfan ? ` &nbsp; System fans <b>${f0(st.sfan.avg)} RPM</b> avg` : '');
+  else {
+    if (st.pin)  sh += `Wall <b>${f0(st.pin.avg)} W</b> avg · <b>${f0(st.pin.max)} W</b> max`;
+    if (st.pout) sh += ` &nbsp; Output <b>${f0(st.pout.avg)} W</b> avg · <b>${f0(st.pout.max)} W</b> peak`;
+    if (phData.kwh!==null && phData.kwh!==undefined) sh += ` &nbsp; Used <b>${kwhFmt(phData.kwh)} kWh</b>` + (lastRate>0 ? ` (<b>${money(phData.kwh*lastRate)}</b>)` : '');
+    if (phView==='breakdown') { if (st.cpu) sh += ` &nbsp; CPU <b>${f0(st.cpu.avg)} W</b> avg`; if (st.gpu) sh += ` · GPU <b>${f0(st.gpu.avg)} W</b>`; if (st.drv) sh += ` · Drives ~<b>${f0(st.drv.avg)} W</b>`; }
+  }
+  q('phStats').innerHTML = sh;
+  q('phNote').textContent = phView==='breakdown'
+    ? 'CPU comes from the processor\'s own power counters (RAPL) and GPU from the graphics driver. Drives are estimated from how many are spun down, idle or busy, as disks have no power sensor. "Everything else" is the rest of the PSU output (motherboard, RAM, fans, CPU power-stage losses). PSU losses are the gap between wall and output. Together they add up to the wall draw.'
+    : (phView==='power' ? 'The PSU doesn\'t report wall power, so it\'s estimated from output power using the model\'s efficiency curve.' : '');
+}
+
+function loadHist(){
+  fetch(API+'?action=history&range='+encodeURIComponent(phRange)).then(r=>r.json()).then(d=>{ phData = d; drawHist(); }).catch(()=>{});
+}
+function phButtons(){
+  document.querySelectorAll('#phRange [data-r]').forEach(b=>b.classList.toggle('active', b.dataset.r===phRange));
+  document.querySelectorAll('#phRange [data-v]').forEach(b=>b.classList.toggle('active', b.dataset.v===phView));
+}
+document.querySelectorAll('#phRange [data-r]').forEach(b=>b.onclick = ()=>{
+  phRange = b.dataset.r; try { localStorage.setItem('cpc2Range', phRange); } catch(e){}
+  phButtons(); loadHist();
+});
+document.querySelectorAll('#phRange [data-v]').forEach(b=>b.onclick = ()=>{
+  phView = b.dataset.v; try { localStorage.setItem('cpc2View', phView); } catch(e){}
+  phButtons(); drawHist();
+});
+window.addEventListener('resize', ()=>{ clearTimeout(window._cpcRs); window._cpcRs = setTimeout(drawHist, 150); });
+phButtons(); loadHist();
+setInterval(()=>{ if (!document.hidden) loadHist(); }, 15000);
 
 // ---- text size (persisted per browser) ----
 const app = document.getElementById('cpc');
