@@ -60,7 +60,7 @@ fi
 # ---- stage ----
 STAGE=$BUILD/pkg
 rm -rf "$STAGE"; mkdir -p "$STAGE/install" "$STAGE/$DEST/icons"
-cp src/*.page src/*.php src/*.sh "$STAGE/$DEST/"
+cp src/*.page src/*.php src/*.sh src/README.md "$STAGE/$DEST/"
 cp src/icons/* "$STAGE/$DEST/icons/"
 cp -a "$BUILD/py" "$STAGE/$DEST/py"
 find "$STAGE" -path "$STAGE/$DEST/py" -prune -o -type d -exec chmod 755 {} +

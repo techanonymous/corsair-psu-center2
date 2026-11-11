@@ -222,6 +222,12 @@ function energy_summary($rate = 0.0, $currency = '$', $currencyPos = 'before') {
         return ['kwh' => round($kwh, 3), 'cost' => round($kwh * $rate, 2)];
     };
 
+    // every recorded day (incl. today's in-progress bucket), oldest..newest, for
+    // the Daily Energy chart. A few bytes per day.
+    $days = [];
+    $dk = array_keys($daily); sort($dk);
+    foreach ($dk as $d) { $row = $mk($daily[$d]); $row['date'] = $d; $days[] = $row; }
+
     // ---- monthly + yearly history: roll the per-day buckets up by calendar
     // month and year. Tiny (a few bytes per month) and kept for as long as the
     // daily data exists, so a month is never lost when it rolls over. Gaps from
@@ -266,5 +272,6 @@ function energy_summary($rate = 0.0, $currency = '$', $currencyPos = 'before') {
         'since'    => $st['since'] ? intval($st['since']) : null,
         'running'  => energyd_running(),
         'series'   => $series,
+        'days'     => $days,
     ];
 }

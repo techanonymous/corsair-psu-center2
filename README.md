@@ -38,6 +38,10 @@ values. Other views:
 - **Temperature** - VRM (average and peak) and case temperature in °C.
 - **Fans** - PSU fan RPM, plus the average of your system fans and how many there are.
 
+**Daily Energy chart** - kWh per day for the last 30 or 90 days, or per month for the
+last 12 months, with cost on hover. It's built from the daily data the plugin already
+records, so your full history shows straight away.
+
 History rides on the energy collector's existing 10-second samples, so it adds no PSU
 polling. Fine detail (the last hour) stays in RAM. The rest is saved to the flash
 every 3 hours and on a clean shutdown (about 230 KB).
@@ -272,6 +276,7 @@ src/                     readable sources (also inside the package)
   CorsairPSUCenter2.page the UI
   CorsairPSUCenter2-dashboard.page  the Unraid Dashboard tile
   icons/                 plugin icon
+  README.md              the short description on Unraid's Plugins page
 tests/run.php            offline tests (fake sysfs, no hardware needed)
 ca_profile.xml           Community Applications repository profile
 plugins/                 Community Applications plugin template

@@ -23,6 +23,10 @@
         support="https://github.com/techanonymous/corsair-psu-center2/issues">
 
 <CHANGES>
+###2026.11.11a
+- New: Daily Energy bar chart - kWh per day for the last 30 or 90 days, or per
+  month for the last 12 months, with cost on hover.
+- New: a short description on Unraid's Plugins page.
 ###2026.11.11
 - First release of Corsair PSU Center v2 by techanonymous (fork of racoutlaw's
   Corsair PSU Center). Installing it removes the original plugin and copies your

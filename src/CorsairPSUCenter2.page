@@ -98,6 +98,20 @@ Icon="corsairpsucenter2.png"
 .cpc-cur-input { width:100%; background:#22262e; color:#e8eaed; border:1px solid #39404b; border-radius:4px;
                  padding:.4em .6em; font-size:.95em; margin-bottom:.55em; }
 .cpc-cur-input:focus { outline:none; border-color:#f0c040; background:#22262e; color:#e8eaed; }
+/* history charts (power draw line + daily energy bars). Drawn as inline SVG at
+   the element's real pixel size (redrawn on resize / text-size change), so text
+   and strokes never stretch. */
+.cpc-chart-head { display:flex; align-items:center; flex-wrap:wrap; gap:.4em 1em; margin-bottom:.4em; }
+.cpc-chart-head h3 { margin:0; }
+.cpc-chart-head .spacer { flex:1; }
+.cpc-chart-head .cpc-btn { margin:0 0 0 .3em; padding:.3em .65em; font-size:.8em; }
+.cpc-chart-read { font-size:.92em; color:#b2b8c0; min-height:1.5em; font-variant-numeric:tabular-nums; }
+.cpc-chart-read b { color:#e8eaed; font-weight:600; }
+.cpc-chart-read .k { color:#f0c040; font-weight:600; }
+.cpc-chart-read .p { color:#b98ee6; font-weight:600; }
+.cpc-chart-read .c { color:#6fc26f; font-weight:600; }
+.cpc-chart { width:100%; height:15em; display:block; touch-action:pan-y; }
+.cpc-chart text { font-family:inherit; }
 /* ---- v2: power history chart, alerts, system fans ---- */
 .cpc-alerts { margin-bottom:.9em; }
 .cpc-alert { display:flex; gap:.7em; align-items:flex-start; border-radius:5px; padding:.6em .8em; margin-bottom:.4em;
@@ -249,6 +263,19 @@ Icon="corsairpsucenter2.png"
         <div class="cpc-legend" id="phLegend"></div>
         <div class="cpc-note" id="phNote"></div>
       </div>
+
+      <div class="cpc-card" id="dailyCard" style="margin-top:12px">
+        <div class="cpc-chart-head">
+          <h3>Daily Energy</h3>
+          <span class="spacer"></span>
+          <span id="dailyRange">
+            <button class="cpc-btn active" data-r="30">30 Days</button><button class="cpc-btn" data-r="90">90 Days</button><button class="cpc-btn" data-r="m12">12 Months</button>
+          </span>
+        </div>
+        <div class="cpc-chart-read" id="dailyRead">&nbsp;</div>
+        <svg class="cpc-chart" id="dailySvg"></svg>
+      </div>
+
 
       <div class="cpc-card" id="histCard" style="margin-top:12px">
         <h3>Energy History</h3>
@@ -633,6 +660,7 @@ function applyEnergy(e){
   const since = e.since ? new Date(e.since*1000) : null;
   document.getElementById('e_since').textContent = since ? since.toLocaleDateString() : '--';
   histMonths = e.months || []; histYears = e.years || []; renderHist(); populatePickers();
+  dDays = e.days || []; drawDaily();
   syncCurrencyControls();
 }
 function costCell(v){ return lastRate>0 ? money(v) : '—'; }
@@ -746,6 +774,178 @@ document.getElementById('curCustom').onchange = e=>{
 document.getElementById('curBefore').onclick = ()=> applyCurrency(lastCur, 'before');
 document.getElementById('curAfter').onclick  = ()=> applyCurrency(lastCur, 'after');
 
+
+// ---- daily energy bar chart (from the 2026.11.11a fork build) ----
+// ---- history charts: power draw (line) + daily energy (bars) ----
+const MON  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const pad2 = n => String(n).padStart(2,'0');
+
+// Size the SVG's coordinate system to its real pixel box so text never stretches.
+function chartBox(svg){
+  const r  = svg.getBoundingClientRect();
+  const w  = Math.max(240, Math.round(r.width  || 600));
+  const h  = Math.max(120, Math.round(r.height || 220));
+  const fs = Math.max(9, Math.round(parseFloat(getComputedStyle(document.getElementById('cpc')).fontSize) * 0.72));
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  return {w, h, fs, X0: Math.round(fs*4.2), X1: w-8, Y0: h-fs-10, Y1: 8};
+}
+function niceStep(raw){
+  if (!(raw > 0)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+  return (m<=1 ? 1 : m<=2 ? 2 : m<=2.5 ? 2.5 : m<=5 ? 5 : 10) * p;
+}
+function yScale(lo, hi){
+  if (hi - lo < 1e-9) { hi = lo + 1; }
+  const step = niceStep((hi - lo) / 4);
+  const y0 = Math.max(0, Math.floor(lo / step) * step);
+  let   y1 = Math.ceil(hi / step) * step; if (y1 <= y0) y1 = y0 + step;
+  return {y0, y1, step};
+}
+function numFmt(v){
+  const a = Math.abs(v);
+  return a >= 100 ? v.toFixed(0) : a >= 10 ? String(+v.toFixed(1)) : String(+v.toFixed(2));
+}
+// x-axis label, kept inside the plot: one that would spill past either edge is
+// anchored to that edge instead of centred (no clipping, no clash with y labels).
+function xLabel(b, x, text){
+  const half = text.length * b.fs * 0.3;
+  let anchor = 'middle';
+  if (x - half < b.X0) { x = b.X0; anchor = 'start'; }
+  else if (x + half > b.X1) { x = b.X1; anchor = 'end'; }
+  return `<text x="${(+x).toFixed(1)}" y="${b.Y0 + b.fs + 4}" fill="#6c727b" font-size="${b.fs}" text-anchor="${anchor}">${text}</text>`;
+}
+function yAxis(b, ys, ty, unit){
+  let h = '';
+  for (let v = ys.y0; v <= ys.y1 + ys.step/1000; v += ys.step){
+    const y = ty(v).toFixed(1);
+    h += `<line x1="${b.X0}" y1="${y}" x2="${b.X1}" y2="${y}" stroke="#262b33"/>`;
+    h += `<text x="${b.X0-6}" y="${(+y + b.fs*0.35).toFixed(1)}" fill="#6c727b" font-size="${b.fs}" text-anchor="end">${numFmt(v)}${unit}</text>`;
+  }
+  return h;
+}
+// Time-axis ticks on local-time boundaries (hours, midnights, month starts).
+const TSTEPS = [300,600,900,1800,3600,7200,10800,21600,43200,86400,172800,604800,1209600,2592000,7776000];
+function timeTicks(from, to, maxN){
+  const span = to - from;
+  let st = TSTEPS[TSTEPS.length-1];
+  for (const s of TSTEPS) if (span / s <= maxN) { st = s; break; }
+  const out = [];
+  if (st >= 2592000){
+    const d = new Date(from*1000); d.setDate(1); d.setHours(0,0,0,0);
+    while (d.getTime()/1000 < from) d.setMonth(d.getMonth()+1);
+    for (; d.getTime()/1000 <= to; d.setMonth(d.getMonth() + st/2592000)) out.push(d.getTime()/1000);
+  } else if (st >= 86400){
+    const d = new Date(from*1000); d.setHours(0,0,0,0);
+    while (d.getTime()/1000 < from) d.setDate(d.getDate()+1);
+    for (; d.getTime()/1000 <= to; d.setDate(d.getDate() + st/86400)) out.push(d.getTime()/1000);
+  } else {
+    const tzo = new Date(to*1000).getTimezoneOffset() * 60;      // seconds; negative east of UTC
+    for (let t = Math.ceil((from - tzo)/st)*st + tzo; t <= to; t += st) out.push(t);
+  }
+  return {ticks: out, mode: st < 86400 ? 'hm' : (st < 2592000 ? 'dm' : 'my')};
+}
+function tickLabel(ts, mode){
+  const d = new Date(ts*1000);
+  if (mode === 'hm') return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  if (mode === 'dm') return d.getDate() + ' ' + MON[d.getMonth()];
+  return MON[d.getMonth()] + " '" + String(d.getFullYear()).slice(2);
+}
+function whenLabel(ts, step){
+  const d = new Date(ts*1000), day = DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()];
+  if (step >= 86400) return day + ' ' + d.getFullYear();
+  if (step >= 3600)  return day + ', ' + pad2(d.getHours()) + ':00–' + pad2((d.getHours()+1)%24) + ':00';
+  return day + ', ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+// --- power draw ---
+// --- daily energy ---
+let dRange = '30', dDays = [], dHover = null, dBars = [];
+try { dRange = localStorage.getItem('cpc2DailyRange') || '30'; } catch(e) {}
+function dailyData(){
+  const out = [], now = new Date();
+  if (dRange === 'm12'){
+    for (let i = 11; i >= 0; i--){
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = d.getFullYear() + '-' + pad2(d.getMonth()+1), m = histMonths.find(x=>x.ym===ym);
+      out.push({label: MON[d.getMonth()] + (d.getMonth()===0 ? " '"+String(d.getFullYear()).slice(2) : ''),
+                full: MONL[d.getMonth()] + ' ' + d.getFullYear(), kwh: m ? m.kwh : 0, cost: m ? m.cost : null,
+                has: !!m, partial: i === 0});
+    }
+    return out;
+  }
+  const n = parseInt(dRange, 10) || 30, map = {};
+  dDays.forEach(x=>{ map[x.date] = x; });
+  now.setHours(12,0,0,0);
+  for (let i = n - 1; i >= 0; i--){
+    const d = new Date(now); d.setDate(now.getDate() - i);
+    const key = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()), r = map[key];
+    out.push({label: d.getDate() + ' ' + MON[d.getMonth()], full: DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear(),
+              kwh: r ? r.kwh : 0, cost: r ? r.cost : null, has: !!r, partial: i === 0});
+  }
+  return out;
+}
+function costOf(row){ return row.cost !== null && row.cost !== undefined ? row.cost : row.kwh * lastRate; }
+function dailyReadDefault(){
+  const el = document.getElementById('dailyRead'), rows = dBars.filter(r=>r.has);
+  if (!rows.length){ el.innerHTML = '&nbsp;'; return; }
+  const tot = rows.reduce((a,r)=>a + r.kwh, 0), cost = rows.reduce((a,r)=>a + costOf(r), 0);
+  const full = rows.filter(r=>!r.partial), unit = dRange === 'm12' ? 'month' : 'day';
+  const avg = full.length ? full.reduce((a,r)=>a + r.kwh, 0) / full.length : null;
+  el.innerHTML = `Total <span class="k">${kwhFmt(tot)} kWh</span>` + (lastRate > 0 ? ` <span class="c">${money(cost)}</span>` : '') +
+    (avg !== null ? ` &nbsp;·&nbsp; average <b>${kwhFmt(avg)} kWh</b> per ${unit}` + (lastRate > 0 ? ` (<span class="c">${money(avg*lastRate)}</span>)` : '') : '');
+}
+function setDailyHover(i){
+  dHover = i;
+  const svg = document.getElementById('dailySvg');
+  svg.querySelectorAll('rect.bar').forEach(r=>r.setAttribute('fill-opacity', (i === null || +r.dataset.i === i) ? r.dataset.op : '0.35'));
+  if (i === null || !dBars[i]){ dailyReadDefault(); return; }
+  const r = dBars[i];
+  document.getElementById('dailyRead').innerHTML = !r.has ? `${r.full} &nbsp;—&nbsp; no data`
+    : `${r.full}${r.partial ? ' (so far)' : ''} &nbsp;—&nbsp; <span class="k">${kwhFmt(r.kwh)} kWh</span>` + (lastRate > 0 ? ` <span class="c">${money(costOf(r))}</span>` : '');
+}
+function drawDaily(){
+  const svg = document.getElementById('dailySvg'); if (!svg) return;
+  document.querySelectorAll('#dailyRange .cpc-btn').forEach(x=>x.classList.toggle('active', x.dataset.r===dRange));
+  dBars = dailyData();
+  const b = chartBox(svg), n = dBars.length;
+  if (!dBars.some(r=>r.has)){
+    svg.innerHTML = `<text x="${(b.X0+b.X1)/2}" y="${(b.Y0+b.Y1)/2}" fill="#7c828b" font-size="${b.fs+1}" text-anchor="middle">No energy recorded in this range yet.</text>`;
+    svg.onpointermove = svg.onpointerleave = null; dailyReadDefault(); return;
+  }
+  const ys = yScale(0, Math.max(...dBars.map(r=>r.kwh)) * 1.05);
+  const ty = v => b.Y0 - (v - ys.y0) / (ys.y1 - ys.y0) * (b.Y0 - b.Y1);
+  const slot = (b.X1 - b.X0) / n, bw = Math.max(1, slot * (n > 60 ? 0.8 : 0.7));
+  let h = `<rect x="${b.X0}" y="${b.Y1}" width="${b.X1-b.X0}" height="${b.Y0-b.Y1}" fill="#14161a"/>`;
+  h += yAxis(b, ys, ty, '');
+  h += `<text x="${b.X0+4}" y="${b.Y1 + b.fs}" fill="#6c727b" font-size="${b.fs}">kWh</text>`;
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor((b.X1-b.X0) / (b.fs*5.5)))));
+  dBars.forEach((r,i)=>{
+    const x = b.X0 + slot*i + (slot - bw)/2;
+    if (r.has && r.kwh > 0){
+      const y = ty(r.kwh), op = r.partial ? '0.5' : '1';
+      h += `<rect class="bar" data-i="${i}" data-op="${op}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(b.Y0-y).toFixed(1)}" rx="1" fill="#f0c040" fill-opacity="${op}"/>`;
+    }
+    if ((n - 1 - i) % every === 0)
+      h += xLabel(b, b.X0 + slot*i + slot/2, r.label);
+  });
+  svg.innerHTML = h;
+  svg.onpointermove = e=>{
+    const rc = svg.getBoundingClientRect();
+    const i = Math.floor(((e.clientX - rc.left) * b.w / rc.width - b.X0) / slot);
+    if (i >= 0 && i < n && i !== dHover) setDailyHover(i);
+  };
+  svg.onpointerleave = ()=> setDailyHover(null);
+  setDailyHover(dHover !== null && dHover < n ? dHover : null);
+}
+document.querySelectorAll('#dailyRange .cpc-btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    dRange = btn.dataset.r; dHover = null;
+    try { localStorage.setItem('cpc2DailyRange', dRange); } catch(e) {}
+    drawDaily();
+  };
+});
 
 // ---- v2: alerts banner + settings, system fans ----
 const q = id => document.getElementById(id);
@@ -956,7 +1156,7 @@ document.querySelectorAll('#phRange [data-v]').forEach(b=>b.onclick = ()=>{
   phView = b.dataset.v; try { localStorage.setItem('cpc2View', phView); } catch(e){}
   phButtons(); drawHist();
 });
-window.addEventListener('resize', ()=>{ clearTimeout(window._cpcRs); window._cpcRs = setTimeout(drawHist, 150); });
+window.addEventListener('resize', ()=>{ clearTimeout(window._cpcRs); window._cpcRs = setTimeout(()=>{ drawHist(); drawDaily(); }, 150); });
 phButtons(); loadHist();
 setInterval(()=>{ if (!document.hidden) loadHist(); }, 15000);
 
@@ -967,6 +1167,7 @@ function applyScale(){
   scale = Math.max(0.8, Math.min(2.0, Math.round(scale*100)/100));
   app.style.setProperty('--cpc-scale', scale);
   localStorage.setItem('cpc2Scale', scale);
+  if (typeof drawHist === 'function') { drawHist(); drawDaily(); }   // chart text follows the app font
 }
 document.getElementById('zIn').onclick  = ()=>{ scale += 0.1; applyScale(); };
 document.getElementById('zOut').onclick = ()=>{ scale -= 0.1; applyScale(); };
