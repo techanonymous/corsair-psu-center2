@@ -1,6 +1,6 @@
 <?php
 /*
- * Corsair PSU Center - backend API
+ * Corsair PSU Center v2 - backend API
  *
  * Telemetry comes from the kernel corsair-psu hwmon driver (sysfs) - instant,
  * no USB contention, no python startup cost.
@@ -19,20 +19,12 @@
 
 header('Content-Type: application/json');
 
-require_once __DIR__ . '/lib.php';   // CFG_DIR/CFG_FILE, PSU_MODELS, hwmon_path(), detect_psu(), rd(), input_power(), energy_*()
+require_once __DIR__ . '/lib.php';       // CFG_DIR/CFG_FILE, PSU_MODELS, hwmon_path(), detect_psu(), rd(), input_power(), energy_*(), read_config()
+require_once __DIR__ . '/monitor.php';   // history + alerts
 
-define('PID_FILE', '/var/run/corsairpsucenter-fand.pid');
-define('DAEMON',   '/usr/local/emhttp/plugins/corsairpsucenter/fand.sh');
-define('ENERGYD',  '/usr/local/emhttp/plugins/corsairpsucenter/energyd.php');
-
-function read_config() {
-    $def = ['mode' => 'auto', 'fixed' => 40, 'curve' => '20,30 40,35 55,55 70,80 85,100',
-            'ocp' => 'unknown', 'rate' => 0, 'currency' => '$', 'currency_pos' => 'before', 'mains' => 'auto',
-            'customcurve' => '20,30 40,35 55,55 70,80 85,100'];
-    if (!file_exists(CFG_FILE)) return $def;
-    $c = @parse_ini_file(CFG_FILE);
-    return is_array($c) ? array_merge($def, $c) : $def;
-}
+define('PID_FILE', '/var/run/corsairpsucenter2-fand.pid');
+define('DAEMON',   '/usr/local/emhttp/plugins/corsairpsucenter2/fand.sh');
+define('ENERGYD',  '/usr/local/emhttp/plugins/corsairpsucenter2/energyd.php');
 
 function write_config($c) {
     if (!is_dir(CFG_DIR)) @mkdir(CFG_DIR, 0755, true);
@@ -52,8 +44,8 @@ function liquidctl($args, $psu, $maxAttempts = 5) {
     if ($psu && $psu['vendor'] !== null && $psu['product'] !== null) {
         $sel = sprintf('--vendor 0x%04x --product 0x%04x', $psu['vendor'], $psu['product']);
     }
-    $py = is_executable('/usr/local/emhttp/plugins/corsairpsucenter/py/bin/python3')
-        ? '/usr/local/emhttp/plugins/corsairpsucenter/py/bin/python3' : 'python3';
+    $py = is_executable('/usr/local/emhttp/plugins/corsairpsucenter2/py/bin/python3')
+        ? '/usr/local/emhttp/plugins/corsairpsucenter2/py/bin/python3' : 'python3';
     $base = "$py -m liquidctl $sel";
     $text = '';
     for ($i = 1; $i <= $maxAttempts; $i++) {
@@ -146,6 +138,7 @@ function get_status() {
 
     $cfg = read_config();
     $cap = $psu['capacity'];
+    $sysFans = sys_fans(fan_exclude_list($cfg));
 
     return [
         'connected'  => true,
@@ -172,6 +165,12 @@ function get_status() {
         'custom_curve' => isset($cfg['customcurve']) ? $cfg['customcurve'] : $cfg['curve'],
         'ocp_mode'   => $cfg['ocp'],
         'daemon'     => daemon_running(),
+        'sys_fan_rpm'   => $sysFans['avg'],
+        'sys_fan_count' => $sysFans['count'],
+        'sys_fan_sources' => $sysFans['sources'],
+        'fan_exclude'   => fan_exclude_list($cfg),
+        'alerts'     => alerts_active(),
+        'alert_cfg'  => alert_config($cfg),
     ];
 }
 
@@ -192,14 +191,6 @@ switch ($action) {
         $cur  = isset($cfg['currency']) ? $cfg['currency'] : '$';
         $pos  = isset($cfg['currency_pos']) ? $cfg['currency_pos'] : 'before';
         echo json_encode(energy_summary($rate, $cur, $pos));
-        break;
-
-    case 'power':
-        energyd_start();                    // the collector also records the power history
-        $psuKnown = $psu ? $psu['known'] : false;
-        $out = power_series($_REQUEST['range'] ?? '24h');
-        $out['kind'] = $psuKnown ? 'input' : 'output';   // wall-draw estimate, or PSU output on an unknown model
-        echo json_encode($out);
         break;
 
     case 'setrate':
@@ -223,6 +214,36 @@ switch ($action) {
         @unlink(CPC_DAILY);
         energyd_start();
         echo json_encode(['ok' => true]);
+        break;
+
+    case 'history':
+        energyd_start();                    // the collector also feeds the history
+        echo json_encode(hist_range($_REQUEST['range'] ?? '24h'));
+        break;
+
+    case 'setalerts':
+        $cfg = read_config();
+        foreach (['alerts', 'alert_rails', 'alert_fan', 'alert_disconnect'] as $k)
+            if (isset($_REQUEST[$k])) $cfg[$k] = ($_REQUEST[$k] === '1') ? '1' : '0';
+        foreach (['alert_vrm' => [30, 120], 'alert_case' => [25, 100], 'alert_load' => [10, 120]] as $k => $r)
+            if (isset($_REQUEST[$k]) && is_numeric($_REQUEST[$k]))
+                $cfg[$k] = (string)max($r[0], min($r[1], round((float)$_REQUEST[$k])));
+        write_config($cfg);
+        echo json_encode(['ok' => true, 'alert_cfg' => alert_config($cfg)]);
+        break;
+
+    case 'setfanexclude':
+        $cfg = read_config();
+        $names = array_filter(array_map(function ($x) { return preg_replace('/[^A-Za-z0-9_.-]/', '', trim($x)); },
+                                        explode(',', (string)($_REQUEST['exclude'] ?? ''))), 'strlen');
+        $cfg['fan_exclude'] = implode(',', array_unique($names));
+        write_config($cfg);
+        echo json_encode(['ok' => true, 'status' => get_status()]);
+        break;
+
+    case 'testalert':
+        $ok = alert_notify('normal', 'test notification', 'Alerts from Corsair PSU Center v2 are reaching your Unraid notifications.');
+        echo json_encode(['ok' => $ok, 'output' => $ok ? 'Test notification sent.' : 'Could not run the Unraid notify script.']);
         break;
 
     case 'setmains':

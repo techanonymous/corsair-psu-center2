@@ -1,19 +1,36 @@
 # Changelog
 
-All notable changes to **Corsair PSU Center**, newest first. This mirrors the in‑plugin
+All notable changes to **Corsair PSU Center v2** (and, below the first v2 entry, the original
+Corsair PSU Center it was forked from), newest first. This mirrors the in‑plugin
 changelog shown in Unraid's Community Applications. Versions are date‑based (`YYYY.MM.DD`).
 
-## 2026.11.11a
-- **New:** a **Power Draw chart** — wall draw over 1 h, 6 h, 24 h, 7 days, 30 days or a
-  year, drawn as an average line with a low–high band; hover to read any point. Gaps show
-  when the server (or the collector) was off. The energy collector now keeps up to 48 hours
-  of per-minute history in RAM (never written to the flash) and appends one hourly average
-  to the flash per hour (about 260 KB a year), so the longer ranges survive reboots.
-- **New:** a **Daily Energy chart** — kWh per day for the last 30 or 90 days, or per month
-  for the last 12 months, with cost on hover. Built from the daily data the plugin already
-  records, so it shows your full history straight away.
-- On a PSU model without efficiency data the power chart records the PSU's own output
-  power instead, and is labelled "Power Output".
+## 2026.11.11a (v2)
+- **New:** a **Daily Energy** bar chart: kWh per day for the last 30 or 90 days, or per
+  month for the last 12 months, with cost on hover. It's carried over from the
+  2026.11.11a fork build and sits next to v2's Power History graph, which covers the
+  power-draw ranges that build added.
+- **New:** a short description of the plugin on Unraid's **Plugins** page.
+
+## 2026.11.11 (v2)
+First release of **Corsair PSU Center v2** by techanonymous, a fork of racoutlaw's
+Corsair PSU Center 2026.11.11. It's a separate plugin (`corsairpsucenter2`).
+- **New:** power history graph with 1h, 6h, 12h, 24h, 7d, 30d and 365d ranges, showing
+  wall power and PSU output with average, peak, kWh and cost for the range. Temperature
+  and Fans views as well.
+- **New:** power breakdown view. A stacked graph of CPU (RAPL), GPU (nvidia-smi /
+  amdgpu), drives (estimated), everything else and PSU losses, adding up to the wall draw.
+- **New:** alerts through Unraid notifications for VRM / case temperature, load, rail
+  voltage outside ATX tolerance, PSU fan stopped and PSU disconnected. Adjustable
+  limits and a test button.
+- **New:** system fans. Average RPM and fan count across the motherboard and any fan
+  controller with a Linux driver, with per-source include / exclude.
+- **New:** `build.sh` packs a release and updates the version and md5.
+- Installing v2 removes the original plugin and copies its settings and energy history
+  across. The old flash folder is kept as a backup.
+
+## 2026.11.11a (v1 fork build, superseded by v2)
+- A Power Draw chart and a Daily Energy chart, built on the original plugin id. v2 keeps
+  the Daily Energy chart and replaces Power Draw with its Power History graph.
 
 ## 2026.11.11
 - **Fixed:** on Unraid's dark themes (Black / Gray) the Corsair logo on the Dashboard

@@ -1,14 +1,16 @@
 <?xml version='1.0' standalone='yes'?>
 <!DOCTYPE PLUGIN [
-<!ENTITY name      "corsairpsucenter">
-<!ENTITY author    "racoutlaw">
+<!ENTITY name      "corsairpsucenter2">
+<!ENTITY author    "techanonymous">
 <!ENTITY version   "2026.11.11a">
-<!ENTITY launch    "CorsairPSUCenter">
+<!ENTITY launch    "CorsairPSUCenter2">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY source    "&gitURL;/archive/&name;-&version;-x86_64.txz">
-<!ENTITY md5       "c277a2498ecaef4307055dfb3a36c979">
+<!ENTITY md5       "6f46b41717b32ddeee1fbe95ae76f321">
 <!ENTITY plugdir   "/boot/config/plugins/&name;">
+<!ENTITY oldname   "corsairpsucenter">
+<!ENTITY olddir    "/boot/config/plugins/&oldname;">
 ]>
 
 <PLUGIN name="&name;"
@@ -18,36 +20,44 @@
         launch="&launch;"
         icon="bolt"
         min="6.12.0"
-        support="https://forums.unraid.net/topic/200056-plugin-corsair-psu-center-icue-style-dashboard-and-fan-control-for-corsair-hxirmi-psus/">
+        support="https://github.com/techanonymous/corsair-psu-center2/issues">
 
 <CHANGES>
 ###2026.11.11a
-- New: a Power Draw chart - wall draw over 1 h, 6 h, 24 h, 7 days, 30 days or a
-  year, as an average line with a low-high band; hover to read any point. Gaps show
-  when the server was off. Up to 48 hours are kept minute by minute in RAM (never
-  written to the flash); one hourly average is added to the flash per hour (about
-  260 KB a year), so the longer ranges survive reboots.
-- New: a Daily Energy chart - kWh per day for the last 30 or 90 days, or per month
-  for the last 12 months, with cost on hover. It uses the daily data already
-  recorded, so your full history shows straight away.
+- New: Daily Energy bar chart - kWh per day for the last 30 or 90 days, or per
+  month for the last 12 months, with cost on hover.
+- New: a short description on Unraid's Plugins page.
 ###2026.11.11
+- First release of Corsair PSU Center v2 by techanonymous (fork of racoutlaw's
+  Corsair PSU Center). Installing it removes the original plugin and copies your
+  settings and energy history across; the old flash folder is kept as a backup.
+- New: power history graph - 1h / 6h / 12h / 24h / 7d / 30d / 365d - with
+  average, peak, kWh and cost for the range, plus Temperature and Fans views.
+- New: power breakdown - CPU (RAPL), GPU (nvidia-smi / amdgpu), drives
+  (estimated), everything else and PSU losses, stacked to the wall draw.
+- New: alerts via Unraid notifications - VRM / case temperature, load, rail
+  voltage out of ATX spec, PSU fan stopped, PSU disconnected.
+- New: system fans - average RPM and fan count across motherboard and fan
+  controller sensors, with per-source include / exclude.
+###v1 history (racoutlaw's Corsair PSU Center)
+###v1 2026.11.11
 - Fixed: on Unraid's dark themes (Black / Gray) the Corsair logo on the new
   Dashboard tile was hard to see - it is a black logo and blended into the dark
   background. It now shows as a white silhouette on dark themes; the light themes
   (White / Azure) keep it black. It follows a live theme change on its own. Thanks
   to PaliKinG3 for the report (issue #8).
-###2026.11.10
+###v1 2026.11.10
 - New: a Corsair PSU tile on Unraid's main Dashboard. It shows the live power draw,
   load and efficiency, VRM and case temperatures, fan speed and mode, and today /
   this month / lifetime energy and cost at a glance - no need to open the full page.
   The arrow on the tile jumps straight to the plugin. The tile reads the same data
   the plugin already collects, so it adds no extra polling of the PSU.
-###2026.09.26
+###v1 2026.09.26
 - The "Custom Curve" preset now applies your last saved custom curve on a single
   click, like the other presets - no separate "Apply Curve" needed to get it going.
   Your hand-drawn curve is remembered on its own, so switching to Quiet / Balanced /
   Performance and back to Custom Curve returns to your curve instead of theirs.
-###2026.09.25
+###v1 2026.09.25
 - Fan control tidied up: every mode now lives in one Cooling Presets list -
   Default, Quiet, Balanced, Performance, Fixed and Custom Curve (the separate
   mode buttons inside the fan card are gone; that card is now just the editor).
@@ -58,18 +68,18 @@
   the slider instead of forcing 100%.
 - Fixed: the fixed-speed slider no longer snaps back to the stored value while
   you are dragging it, so you have time to set a duty and Apply.
-###2026.09.24
+###v1 2026.09.24
 - Changed: removing the plugin no longer deletes your data. Uninstalling now keeps
   your settings and the full energy history (kWh + cost) on the flash, so pulling
   the plugin to troubleshoot and reinstalling picks everything right back up - only
   the downloaded package files are cleared. Delete the plugin's folder by hand if
   you want a full purge. Thanks to PaliKinG3 for the report (issue #7).
-###2026.09.12
+###v1 2026.09.12
 - New: currency selection. Choose the currency shown for costs from the new
   Currency panel - USD, EUR, GBP, JPY and more, or a Custom symbol - and pick
   whether it sits before the amount ($1) or after it (1 EUR). Every cost updates
   to match: the tiles, Last Month, the month/year pickers and the history lists.
-###2026.09.10
+###v1 2026.09.10
 - New: energy history. The dashboard now keeps every past month and year instead
   of losing "This Month" when it rolls over. Added a "Last Month" tile and an
   Energy History section with a month picker and a year picker (jump to any month
@@ -80,7 +90,7 @@
 - Changed: on the energy tiles the cost is now shown at full size beside the kWh
   (it was small subtext before), and the small min/max numbers on every tile were
   enlarged to match, for readability.
-###2026.08.20
+###v1 2026.08.20
 - Fixed: a fresh install or reinstall could fail with "'/bin/bash' returned 1",
   and the plugin could vanish after a reboot. The pre-install cleanup step
   returned an error when there was no previous version to remove - which is the
@@ -88,7 +98,7 @@
   that as a fatal error, aborting the install before the package was registered.
   Installs now complete reliably on a clean system and the plugin persists
   across reboots. In-place upgrades were not affected.
-###2026.08.10
+###v1 2026.08.10
 - New: energy usage + cost tracking. New dashboard tiles show power used and the
   cost for today / this week / month / year / lifetime, with a field for your
   electricity rate. A lightweight background collector integrates the PSU's
@@ -102,13 +112,13 @@
   efficiency / power-in estimates stay correct. Auto (the default) trusts the
   PSU, so existing setups are unchanged.
 - Tidied the energy Reset tile layout.
-###2026.08.09
+###v1 2026.08.09
 - Fan control now works on Unraid systems with no Python installed. The plugin
   bundles its own Python 3.11 runtime, so liquidctl no longer needs a system
   python3 (Unraid does not ship Python by default). Fixes "python3: command not
   found" on any fan action.
 - Now fully self-contained: bundled interpreter plus every module it needs.
-###2026.07.26
+###v1 2026.07.26
 - First release.
 - iCUE-style dashboard for Corsair HXi / RMi digital power supplies.
 - Live sensor tiles (per-rail volts/amps/watts, temps, fan, efficiency,
@@ -137,18 +147,59 @@
 # 1 - which Unraid treats as a fatal plugin error and aborts the whole install
 # (the package is never registered, and the plugin fails to reappear after a reboot).
 shopt -s nullglob
-if [ -f /var/run/corsairpsucenter-fand.pid ]; then
-  kill "$(cat /var/run/corsairpsucenter-fand.pid)" 2&gt;/dev/null
-  rm -f /var/run/corsairpsucenter-fand.pid
+if [ -f /var/run/&name;-fand.pid ]; then
+  kill "$(cat /var/run/&name;-fand.pid)" 2&gt;/dev/null
+  rm -f /var/run/&name;-fand.pid
 fi
-if [ -f /var/run/corsairpsucenter-energyd.pid ]; then
-  kill "$(cat /var/run/corsairpsucenter-energyd.pid)" 2&gt;/dev/null
-  rm -f /var/run/corsairpsucenter-energyd.pid
+if [ -f /var/run/&name;-energyd.pid ]; then
+  kill "$(cat /var/run/&name;-energyd.pid)" 2&gt;/dev/null
+  rm -f /var/run/&name;-energyd.pid
 fi
 for pkg in /var/lib/pkgtools/packages/&name;-*; do
   [ -e "$pkg" ] &amp;&amp; removepkg "$(basename "$pkg")" &gt;/dev/null 2&gt;&amp;1
 done
 # This block is best-effort cleanup only; never let its exit status abort the install.
+exit 0
+</INLINE>
+</FILE>
+
+<!-- replace v1: Corsair PSU Center v2 is a separate plugin (corsairpsucenter2), so the
+     original racoutlaw plugin (corsairpsucenter) is removed here - two plugins driving the
+     same PSU fan over USB would fight each other. Its settings and energy history are
+     copied across the first time (only if v2 has none yet), and its folder on the flash
+     is left in place untouched as a backup. -->
+<FILE Run="/bin/bash">
+<INLINE>
+shopt -s nullglob
+OLD=0
+[ -e "/boot/config/plugins/&oldname;.plg" ] &amp;&amp; OLD=1
+[ -e "/var/log/plugins/&oldname;.plg" ] &amp;&amp; OLD=1
+for pkg in /var/lib/pkgtools/packages/&oldname;-[0-9]*; do OLD=1; done
+if [ "$OLD" = 1 ]; then
+  echo "Removing the original Corsair PSU Center (v1) - v2 replaces it."
+  for p in fand energyd; do
+    if [ -f "/var/run/&oldname;-$p.pid" ]; then
+      kill "$(cat "/var/run/&oldname;-$p.pid")" 2&gt;/dev/null
+      rm -f "/var/run/&oldname;-$p.pid"
+    fi
+  done
+  sleep 1
+  # carry settings + energy history over, once (after v1's collector has flushed on stop)
+  if [ -d "&olddir;" ] &amp;&amp; [ ! -f "&plugdir;/settings.cfg" ] &amp;&amp; [ ! -d "&plugdir;/energy" ]; then
+    mkdir -p "&plugdir;"
+    [ -f "&olddir;/settings.cfg" ] &amp;&amp; cp -p "&olddir;/settings.cfg" "&plugdir;/settings.cfg"
+    [ -d "&olddir;/energy" ] &amp;&amp; cp -rp "&olddir;/energy" "&plugdir;/energy"
+    echo "  Copied your v1 settings and energy history to &plugdir;"
+  fi
+  # the [0-9] keeps this from ever matching our own corsairpsucenter2-* package
+  for pkg in /var/lib/pkgtools/packages/&oldname;-[0-9]*; do
+    removepkg "$(basename "$pkg")" &gt;/dev/null 2&gt;&amp;1
+  done
+  rm -rf "/usr/local/emhttp/plugins/&oldname;"
+  rm -f "/boot/config/plugins/&oldname;.plg" "/var/log/plugins/&oldname;.plg"
+  rm -f "&olddir;"/*.txz
+  echo "  v1 removed. Its folder &olddir; was kept as a backup."
+fi
 exit 0
 </INLINE>
 </FILE>
@@ -188,8 +239,8 @@ setsid /usr/bin/php /usr/local/emhttp/plugins/&name;/energyd.php &gt;/dev/null 2
 
 echo ""
 echo "-----------------------------------------------------------"
-echo " Corsair PSU Center &version; installed"
-echo " Open the 'CorsairPSUCenter' tab in the top menu."
+echo " Corsair PSU Center v2 &version; installed"
+echo " Open the 'Corsair PSU v2' tab in the top menu."
 echo "-----------------------------------------------------------"
 echo ""
 </INLINE>
@@ -200,14 +251,14 @@ echo ""
 <INLINE>
 shopt -s nullglob
 # stop the fan curve service and hand the fan back to the PSU firmware
-if [ -f /var/run/corsairpsucenter-fand.pid ]; then
-  kill "$(cat /var/run/corsairpsucenter-fand.pid)" 2&gt;/dev/null
-  rm -f /var/run/corsairpsucenter-fand.pid
+if [ -f /var/run/&name;-fand.pid ]; then
+  kill "$(cat /var/run/&name;-fand.pid)" 2&gt;/dev/null
+  rm -f /var/run/&name;-fand.pid
 fi
 # stop the energy collector
-if [ -f /var/run/corsairpsucenter-energyd.pid ]; then
-  kill "$(cat /var/run/corsairpsucenter-energyd.pid)" 2&gt;/dev/null
-  rm -f /var/run/corsairpsucenter-energyd.pid
+if [ -f /var/run/&name;-energyd.pid ]; then
+  kill "$(cat /var/run/&name;-energyd.pid)" 2&gt;/dev/null
+  rm -f /var/run/&name;-energyd.pid
 fi
 HW=""
 for h in /sys/class/hwmon/hwmon*; do
@@ -239,8 +290,8 @@ rm -rf "/usr/local/emhttp/plugins/&name;"
 # them straight back up. The glob is nullglob-guarded (set at the top of this block).
 for txz in "&plugdir;"/*.txz; do [ -e "$txz" ] &amp;&amp; rm -f "$txz"; done
 rm -f "/boot/config/plugins/&name;.plg"
-rm -f /var/run/corsairpsucenter-fand.pid
-echo "Corsair PSU Center removed."
+rm -f /var/run/&name;-fand.pid
+echo "Corsair PSU Center v2 removed."
 echo "Your settings and energy history were kept at &plugdir;"
 echo "(delete that folder by hand if you want to purge everything)."
 </INLINE>

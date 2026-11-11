@@ -1,7 +1,13 @@
-# Corsair PSU Center
+# Corsair PSU Center v2
 
 An iCUE-style dashboard for Corsair **HXi / RMi** digital power supplies, running as a
 native Unraid plugin.
+
+**v2 by techanonymous** is a fork of [racoutlaw's Corsair PSU Center](https://github.com/racoutlaw/corsair-psu-center).
+It adds a power history graph with a per-component breakdown, alerts through Unraid
+notifications, and system fan tracking. It's a separate plugin (`corsairpsucenter2`):
+installing it removes the original plugin and carries your settings and energy history
+across.
 
 Corsair's own iCUE software is Windows-only, so a Corsair digital PSU in an Unraid
 server normally means no monitoring and no fan control at all. This plugin adds both,
@@ -16,6 +22,51 @@ in its own tab.
 ---
 
 ## Features
+
+### New in v2
+
+**Power history graph** - wall power and PSU output over the last **1h, 6h, 12h, 24h,
+7d, 30d or 365d**, with average, peak, kWh used and cost for the range. Hover for exact
+values. Other views:
+
+- **Breakdown** - a stacked graph of what's driving the PSU's draw: **CPU** (measured
+  from the processor's RAPL power counters, Intel and AMD), **GPU** (measured, from
+  `nvidia-smi` or the `amdgpu` driver), **drives** (estimated from how many disks are
+  spun down, idle or busy, since disks have no power sensor), **everything else**
+  (motherboard, RAM, fans, CPU power-stage losses) and **PSU losses** (wall minus output).
+  Together they add up to the wall draw. Sources your system doesn't have are left out.
+- **Temperature** - VRM (average and peak) and case temperature in °C.
+- **Fans** - PSU fan RPM, plus the average of your system fans and how many there are.
+
+**Daily Energy chart** - kWh per day for the last 30 or 90 days, or per month for the
+last 12 months, with cost on hover. It's built from the daily data the plugin already
+records, so your full history shows straight away.
+
+History rides on the energy collector's existing 10-second samples, so it adds no PSU
+polling. Fine detail (the last hour) stays in RAM. The rest is saved to the flash
+every 3 hours and on a clean shutdown (about 230 KB).
+
+**Alerts** - Unraid notifications (the bell, plus any email or push agents you've set
+up) when:
+
+- VRM or case temperature goes above your limit (default 70°C and 55°C)
+- load goes above your limit (default 90%)
+- a +12V, +5V or +3.3V rail drifts outside the ATX ±5% tolerance
+- the PSU fan reads 0 RPM when it should be spinning (a fixed speed or curve is set,
+  or the VRM is getting hot in Default mode)
+- the PSU disappears from USB
+
+A problem has to last 30 seconds before it notifies. You get one notice when it starts
+and one when it clears. Active alerts also show as a banner on the page and a count on
+the Dashboard tile. Thresholds and a **Send test** button are in the Alerts card.
+
+**System fans** - average RPM and fan count across every fan Unraid can see: the
+motherboard's sensor chip and any fan controller with a Linux driver (Corsair Commander
+Pro / Core XT, NZXT, Aquacomputer...). The PSU's own fan isn't included, and GPU fans
+are left out by default. Each source is listed with its fans, and you can untick a
+source to leave it out of the average. Fans at 0 RPM aren't counted.
+
+### Carried over from v1
 
 **Live monitoring** — read from the kernel's `corsair-psu` hwmon driver, so polling
 costs no USB traffic and cannot collide with anything else talking to the PSU:
@@ -51,12 +102,6 @@ means fewer nuisance trips when several drives spin up at once.
   you pick any month or any year, filter to 1 / 3 / 6 / 12 months or All, and see a
   month-by-month list and a by-year summary. It rolls up the daily data already being
   recorded (a few bytes per month); days the server was off simply aren't counted
-- **Charts** — a **Power Draw** graph of wall draw over 1 h / 6 h / 24 h / 7 d / 30 d /
-  1 year (average line plus a low–high band, hover for any point; gaps show when the
-  server was off), and a **Daily Energy** bar chart for the last 30 or 90 days or 12
-  months (hover a bar for its kWh and cost). Up to 48 hours of power history is kept
-  minute by minute in RAM; hourly averages go to the flash once an hour (about 260 KB a
-  year), so the longer ranges survive reboots
 - **Currency** — choose the symbol shown for costs (USD, EUR, GBP, JPY and more, or a
   custom symbol) and whether it sits before the amount (`$1`) or after it (`1 €`)
 - **Your history survives a reinstall** — removing the plugin keeps your settings and
@@ -81,6 +126,26 @@ are unaffected.
 
 ---
 
+---
+
+## Building a release
+
+```
+./build.sh              # version = today, e.g. 2026.11.11 (then 2026.11.11a, b... on the same day)
+./build.sh 2026.12.01   # or pick one
+php tests/run.php       # offline tests for history, alerts, breakdown and fans
+```
+
+`build.sh` packs `src/` into `archive/corsairpsucenter2-<version>-x86_64.txz` and writes
+the version and md5 into `corsairpsucenter2.plg` and `archive/md5.txt`. The bundled
+Python runtime is taken from the newest package already in `archive/` and cached in
+`.build/`. Add a `###<version>` entry to `<CHANGES>` in the `.plg` and to
+`CHANGELOG.md`, commit, and push. Unraid picks the update up from the `.plg` on GitHub.
+
+Needs bash, GNU tar, xz and md5sum (Linux, WSL or Git Bash).
+
+---
+
 ## Supported hardware
 
 Any PSU handled by the kernel `corsair-psu` driver. The model is detected at runtime
@@ -102,8 +167,19 @@ are hidden, because those need model-specific coefficients — the plugin will s
 
 ## Install
 
-Unraid → **Plugins** → **Install Plugin**, paste the URL of `corsairpsucenter.plg`,
-and click Install. Then open the **CorsairPSUCenter** tab in the top menu.
+Unraid → **Plugins** → **Install Plugin**, paste
+
+```
+https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main/corsairpsucenter2.plg
+```
+
+and click Install. Then open the **Corsair PSU v2** tab in the top menu.
+
+**Upgrading from the original Corsair PSU Center:** just install v2. It stops the old
+plugin's services, removes its package and `.plg`, and copies its `settings.cfg` and
+energy history into `/boot/config/plugins/corsairpsucenter2/` (only if v2 doesn't
+already have its own). The old `/boot/config/plugins/corsairpsucenter/` folder is left
+in place as a backup. Delete it by hand when you're happy.
 
 The package is **fully self-contained** — it bundles its own Python 3.11 runtime *and*
 every module it needs, so fan control works even on Unraid systems that have no Python
@@ -151,11 +227,32 @@ Consequences worth knowing:
 
 ---
 
+---
+
+## Building a release
+
+```
+./build.sh              # version = today, e.g. 2026.11.11 (then 2026.11.11a, b... on the same day)
+./build.sh 2026.12.01   # or pick one
+php tests/run.php       # offline tests for history, alerts, breakdown and fans
+```
+
+`build.sh` packs `src/` into `archive/corsairpsucenter2-<version>-x86_64.txz` and writes
+the version and md5 into `corsairpsucenter2.plg` and `archive/md5.txt`. The bundled
+Python runtime is taken from the newest package already in `archive/` and cached in
+`.build/`. Add a `###<version>` entry to `<CHANGES>` in the `.plg` and to
+`CHANGELOG.md`, commit, and push. Unraid picks the update up from the `.plg` on GitHub.
+
+Needs bash, GNU tar, xz and md5sum (Linux, WSL or Git Bash).
+
+---
+
 ## Support
 
-**[Unraid forum support thread](https://forums.unraid.net/topic/200056-plugin-corsair-psu-center-icue-style-dashboard-and-fan-control-for-corsair-hxirmi-psus/)** —
-best place for questions, problems, or to report how it behaves on your hardware.
-GitHub issues work too if you'd rather report there.
+For v2, please open a **[GitHub issue](https://github.com/techanonymous/corsair-psu-center2/issues)**.
+The original plugin's
+[Unraid forum thread](https://forums.unraid.net/topic/200056-plugin-corsair-psu-center-icue-style-dashboard-and-fan-control-for-corsair-hxirmi-psus/)
+covers v1.
 
 Reports from **other PSU models are especially welcome.** Only the HX1000i has been
 tested on real hardware; the other eleven share the same detection path but nobody has
@@ -167,15 +264,20 @@ and efficiency read correctly.
 ## Layout
 
 ```
-corsairpsucenter.plg     the installer
-archive/                 the .txz package + its md5
+corsairpsucenter2.plg    the installer (also removes v1)
+build.sh                 packs src/ into the .txz, updates version + md5
+archive/                 the .txz packages + md5 list (v1 packages kept for history)
 src/                     readable sources (also inside the package)
   api.php                telemetry + control endpoint
-  lib.php                shared PSU table, sysfs + energy helpers
-  energyd.php            background energy / kWh + power-history collector
+  lib.php                shared PSU table, sysfs + energy helpers, config
+  monitor.php            history tiers, power breakdown, system fans, alerts
+  energyd.php            background collector: energy, history, alerts
   fand.sh                fan curve daemon
-  CorsairPSUCenter.page  the UI
-  CorsairPSUCenter-dashboard.page  the Unraid Dashboard tile
+  CorsairPSUCenter2.page the UI
+  CorsairPSUCenter2-dashboard.page  the Unraid Dashboard tile
+  icons/                 plugin icon
+  README.md              the short description on Unraid's Plugins page
+tests/run.php            offline tests (fake sysfs, no hardware needed)
 ca_profile.xml           Community Applications repository profile
 plugins/                 Community Applications plugin template
 ```
@@ -184,6 +286,8 @@ plugins/                 Community Applications plugin template
 
 ## Credits
 
+Corsair PSU Center v1 by [racoutlaw](https://github.com/racoutlaw/corsair-psu-center).
+v2 additions by techanonymous.
 Device protocol, model table and efficiency coefficients come from
 [liquidctl](https://github.com/liquidctl/liquidctl), which does the hard part of
 talking to these PSUs. The `corsair-psu` hwmon driver is part of the Linux kernel.

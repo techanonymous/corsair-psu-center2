@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Corsair PSU Center - fan curve daemon
+# Corsair PSU Center v2 - fan curve daemon
 #
 # These PSUs cannot store a fan curve in firmware (liquidctl's
 # set_speed_profile is NotSupportedByDevice) - they only accept a single fixed
@@ -10,15 +10,15 @@
 # The PSU is identified at runtime from sysfs, so nothing here is tied to a
 # specific model.
 #
-# Reads:  /boot/config/plugins/corsairpsucenter/settings.cfg
+# Reads:  /boot/config/plugins/corsairpsucenter2/settings.cfg
 # Writes: PSU fan duty via liquidctl (USB HID), only when the target changes.
 
-CFG=/boot/config/plugins/corsairpsucenter/settings.cfg
-PIDFILE=/var/run/corsairpsucenter-fand.pid
+CFG=/boot/config/plugins/corsairpsucenter2/settings.cfg
+PIDFILE=/var/run/corsairpsucenter2-fand.pid
 INTERVAL=10
-LOG=/var/log/corsairpsucenter.log
+LOG=/var/log/corsairpsucenter2.log
 MIN_DUTY=30      # liquidctl clamps below this anyway
-PYBIN=/usr/local/emhttp/plugins/corsairpsucenter/py/bin/python3; [ -x "$PYBIN" ] || PYBIN=python3
+PYBIN=/usr/local/emhttp/plugins/corsairpsucenter2/py/bin/python3; [ -x "$PYBIN" ] || PYBIN=python3
 MAX_LOG_BYTES=262144
 
 # Single instance. Identify the previous copy precisely via the pidfile and
