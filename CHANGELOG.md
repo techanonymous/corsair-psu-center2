@@ -3,7 +3,7 @@
 All notable changes to **Corsair PSU Center**, newest first. This mirrors the in‑plugin
 changelog shown in Unraid's Community Applications. Versions are date‑based (`YYYY.MM.DD`).
 
-## Unreleased
+## 2026.11.11a
 - **New:** a **Power Draw chart** — wall draw over 1 h, 6 h, 24 h, 7 days, 30 days or a
   year, drawn as an average line with a low–high band; hover to read any point. Gaps show
   when the server (or the collector) was off. The energy collector now keeps up to 48 hours

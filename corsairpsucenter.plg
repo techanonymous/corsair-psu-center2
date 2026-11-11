@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "corsairpsucenter">
 <!ENTITY author    "racoutlaw">
-<!ENTITY version   "2026.11.11">
+<!ENTITY version   "2026.11.11a">
 <!ENTITY launch    "CorsairPSUCenter">
-<!ENTITY gitURL    "https://raw.githubusercontent.com/racoutlaw/corsair-psu-center/main">
+<!ENTITY gitURL    "https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY source    "&gitURL;/archive/&name;-&version;-x86_64.txz">
-<!ENTITY md5       "045826d67ac020ef9797b40addca950d">
+<!ENTITY md5       "c277a2498ecaef4307055dfb3a36c979">
 <!ENTITY plugdir   "/boot/config/plugins/&name;">
 ]>
 
@@ -21,6 +21,15 @@
         support="https://forums.unraid.net/topic/200056-plugin-corsair-psu-center-icue-style-dashboard-and-fan-control-for-corsair-hxirmi-psus/">
 
 <CHANGES>
+###2026.11.11a
+- New: a Power Draw chart - wall draw over 1 h, 6 h, 24 h, 7 days, 30 days or a
+  year, as an average line with a low-high band; hover to read any point. Gaps show
+  when the server was off. Up to 48 hours are kept minute by minute in RAM (never
+  written to the flash); one hourly average is added to the flash per hour (about
+  260 KB a year), so the longer ranges survive reboots.
+- New: a Daily Energy chart - kWh per day for the last 30 or 90 days, or per month
+  for the last 12 months, with cost on hover. It uses the daily data already
+  recorded, so your full history shows straight away.
 ###2026.11.11
 - Fixed: on Unraid's dark themes (Black / Gray) the Corsair logo on the new
   Dashboard tile was hard to see - it is a black logo and blended into the dark
