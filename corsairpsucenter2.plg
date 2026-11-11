@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "corsairpsucenter2">
 <!ENTITY author    "techanonymous">
-<!ENTITY version   "2026.11.11">
+<!ENTITY version   "2026.11.11a">
 <!ENTITY launch    "CorsairPSUCenter2">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY source    "&gitURL;/archive/&name;-&version;-x86_64.txz">
-<!ENTITY md5       "57d1e722277e24ad1736eb183d7bc640">
+<!ENTITY md5       "6f46b41717b32ddeee1fbe95ae76f321">
 <!ENTITY plugdir   "/boot/config/plugins/&name;">
 <!ENTITY oldname   "corsairpsucenter">
 <!ENTITY olddir    "/boot/config/plugins/&oldname;">
