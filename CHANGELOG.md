@@ -3,6 +3,18 @@
 All notable changes to **Corsair PSU Center**, newest first. This mirrors the in‑plugin
 changelog shown in Unraid's Community Applications. Versions are date‑based (`YYYY.MM.DD`).
 
+## Unreleased
+- **New:** a **Power Draw chart** — wall draw over 1 h, 6 h, 24 h, 7 days, 30 days or a
+  year, drawn as an average line with a low–high band; hover to read any point. Gaps show
+  when the server (or the collector) was off. The energy collector now keeps up to 48 hours
+  of per-minute history in RAM (never written to the flash) and appends one hourly average
+  to the flash per hour (about 260 KB a year), so the longer ranges survive reboots.
+- **New:** a **Daily Energy chart** — kWh per day for the last 30 or 90 days, or per month
+  for the last 12 months, with cost on hover. Built from the daily data the plugin already
+  records, so it shows your full history straight away.
+- On a PSU model without efficiency data the power chart records the PSU's own output
+  power instead, and is labelled "Power Output".
+
 ## 2026.11.11
 - **Fixed:** on Unraid's dark themes (Black / Gray) the Corsair logo on the Dashboard
   tile was hard to see against the dark background (it's a black logo). It now renders as a

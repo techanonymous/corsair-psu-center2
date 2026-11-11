@@ -51,6 +51,12 @@ means fewer nuisance trips when several drives spin up at once.
   you pick any month or any year, filter to 1 / 3 / 6 / 12 months or All, and see a
   month-by-month list and a by-year summary. It rolls up the daily data already being
   recorded (a few bytes per month); days the server was off simply aren't counted
+- **Charts** — a **Power Draw** graph of wall draw over 1 h / 6 h / 24 h / 7 d / 30 d /
+  1 year (average line plus a low–high band, hover for any point; gaps show when the
+  server was off), and a **Daily Energy** bar chart for the last 30 or 90 days or 12
+  months (hover a bar for its kWh and cost). Up to 48 hours of power history is kept
+  minute by minute in RAM; hourly averages go to the flash once an hour (about 260 KB a
+  year), so the longer ranges survive reboots
 - **Currency** — choose the symbol shown for costs (USD, EUR, GBP, JPY and more, or a
   custom symbol) and whether it sits before the amount (`$1`) or after it (`1 €`)
 - **Your history survives a reinstall** — removing the plugin keeps your settings and
@@ -166,7 +172,7 @@ archive/                 the .txz package + its md5
 src/                     readable sources (also inside the package)
   api.php                telemetry + control endpoint
   lib.php                shared PSU table, sysfs + energy helpers
-  energyd.php            background energy / kWh collector
+  energyd.php            background energy / kWh + power-history collector
   fand.sh                fan curve daemon
   CorsairPSUCenter.page  the UI
   CorsairPSUCenter-dashboard.page  the Unraid Dashboard tile

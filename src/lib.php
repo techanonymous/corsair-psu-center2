@@ -15,6 +15,12 @@ define('CPC_STATE', CPC_EDIR . '/state.json');
 define('CPC_DAILY', CPC_EDIR . '/daily.csv');
 define('CPC_EPID',  '/var/run/corsairpsucenter-energyd.pid');
 define('CPC_LIVE',  '/var/run/corsairpsucenter-energy.json');  // RAM (tmpfs): fresh copy for the UI, no flash wear
+// Power-draw history for the charts. Per-minute detail lives in RAM only (lost
+// on reboot, never touches flash); hourly averages are appended to flash once an
+// hour (~30 bytes each, ~260 KB per year) so long ranges survive reboots.
+define('CPC_HOURLY', CPC_EDIR . '/power-hourly.csv');            // ts,avg,min,max,n  (ts = local hour start)
+define('CPC_PLIVE',  '/var/run/corsairpsucenter-power.json');     // RAM: per-minute rows + open buckets
+define('CPC_MINKEEP', 48 * 3600);                                 // seconds of per-minute detail kept in RAM
 
 /*
  * Known Corsair digital PSUs, keyed by USB HID product id (vendor is always
@@ -211,6 +217,12 @@ function energy_summary($rate = 0.0, $currency = '$', $currencyPos = 'before') {
         return ['kwh' => round($kwh, 3), 'cost' => round($kwh * $rate, 2)];
     };
 
+    // every recorded day (incl. today's in-progress bucket), oldest..newest, for
+    // the Daily Energy chart. A few bytes per day.
+    $days = [];
+    $dk = array_keys($daily); sort($dk);
+    foreach ($dk as $d) { $row = $mk($daily[$d]); $row['date'] = $d; $days[] = $row; }
+
     // ---- monthly + yearly history: roll the per-day buckets up by calendar
     // month and year. Tiny (a few bytes per month) and kept for as long as the
     // daily data exists, so a month is never lost when it rolls over. Gaps from
@@ -255,5 +267,125 @@ function energy_summary($rate = 0.0, $currency = '$', $currencyPos = 'before') {
         'since'    => $st['since'] ? intval($st['since']) : null,
         'running'  => energyd_running(),
         'series'   => $series,
+        'days'     => $days,
+    ];
+}
+
+/* ---- power-draw history (energyd.php writes, api.php reads) ----
+ *
+ * A row is [ts, avg_w, min_w, max_w, n]: the bucket's start time, the mean /
+ * lowest / highest sampled watts in it, and how many 10 s samples it holds (so
+ * rows for the same bucket - e.g. a daemon restart mid-hour - merge correctly).
+ */
+
+function pw_bucket($t) { return ['t' => $t, 's' => 0.0, 'n' => 0, 'lo' => null, 'hi' => null]; }
+
+function pw_add(&$b, $w) {
+    $b['s'] += $w; $b['n']++;
+    $b['lo'] = ($b['lo'] === null) ? $w : min($b['lo'], $w);
+    $b['hi'] = ($b['hi'] === null) ? $w : max($b['hi'], $w);
+}
+
+function pw_row($b) {
+    return [intval($b['t']), round($b['s'] / $b['n'], 1), round($b['lo'], 1), round($b['hi'], 1), intval($b['n'])];
+}
+
+/* Start of the local-time hour containing $ts (correct for half-hour zones too). */
+function pw_hour_start($ts) { return strtotime(date('Y-m-d H:00:00', $ts)); }
+
+/* Merge rows that share a timestamp (sample-weighted), sorted oldest first. */
+function pw_merge($rows) {
+    $by = [];
+    foreach ($rows as $r) {
+        $t = $r[0]; $n = max(1, intval($r[4] ?? 1));
+        if (!isset($by[$t])) { $by[$t] = [$t, $r[1] * $n, $r[2], $r[3], $n]; continue; }
+        $by[$t][1] += $r[1] * $n;
+        $by[$t][2]  = min($by[$t][2], $r[2]);
+        $by[$t][3]  = max($by[$t][3], $r[3]);
+        $by[$t][4] += $n;
+    }
+    ksort($by);
+    $out = [];
+    foreach ($by as $v) $out[] = [$v[0], round($v[1] / $v[4], 1), $v[2], $v[3], $v[4]];
+    return $out;
+}
+
+function power_load_live() {
+    $def = ['min' => [], 'cur' => null, 'hour' => null];
+    if (!file_exists(CPC_PLIVE)) return $def;
+    $j = @json_decode(@file_get_contents(CPC_PLIVE), true);
+    return is_array($j) ? array_merge($def, $j) : $def;
+}
+
+/* Hourly rows from flash with ts >= $from. */
+function power_read_hourly($from = 0) {
+    $rows = [];
+    if (!file_exists(CPC_HOURLY)) return $rows;
+    $fh = @fopen(CPC_HOURLY, 'r');
+    if (!$fh) return $rows;
+    while (($line = fgets($fh)) !== false) {
+        $p = explode(',', trim($line));
+        if (count($p) < 5 || !ctype_digit($p[0])) continue;
+        $t = intval($p[0]);
+        if ($t < $from) continue;
+        $rows[] = [$t, (float)$p[1], (float)$p[2], (float)$p[3], intval($p[4])];
+    }
+    fclose($fh);
+    return $rows;
+}
+
+/*
+ * Power-draw series for one chart range. Short ranges (<= 48 h) use the
+ * per-minute RAM detail, padded on the left with hourly rows for any time the
+ * RAM copy does not cover (e.g. just after a reboot). Longer ranges use the
+ * hourly flash rows plus the current open hour; the 1-year range is rolled up
+ * to days. Each point carries its bucket length ('step', seconds) so the chart
+ * can break the line across gaps (server off) instead of drawing through them.
+ */
+function power_series($range) {
+    $spans = ['1h' => 3600, '6h' => 21600, '24h' => 86400, '7d' => 604800, '30d' => 2592000, '1y' => 31536000];
+    if (!isset($spans[$range])) $range = '24h';
+    $span = $spans[$range];
+    $now  = time();
+    $from = $now - $span;
+
+    $live = power_load_live();
+    $mins = is_array($live['min']) ? $live['min'] : [];
+    if (!empty($live['cur']['n'])) $mins[] = pw_row($live['cur']);
+    $mins = pw_merge($mins);
+    $hours = power_read_hourly(pw_hour_start($from));
+    if (!empty($live['hour']['n'])) $hours[] = pw_row($live['hour']);
+    $hours = pw_merge($hours);
+
+    $pts = [];
+    if ($span <= CPC_MINKEEP) {
+        $mins = array_values(array_filter($mins, function ($r) use ($from) { return $r[0] + 60 > $from; }));
+        $firstMin = $mins ? $mins[0][0] : $now;
+        foreach ($hours as $r)                                   // only whole hours the minute data does not cover
+            if ($r[0] + 3600 > $from && $r[0] + 3600 <= $firstMin) $pts[] = array_merge($r, [3600]);
+        foreach ($mins as $r) $pts[] = array_merge($r, [60]);
+    } elseif ($range === '1y') {
+        $days = [];
+        foreach ($hours as $r) { $r[0] = strtotime(date('Y-m-d', $r[0])); $days[] = $r; }
+        foreach (pw_merge($days) as $r) $pts[] = array_merge($r, [86400]);
+    } else {
+        foreach ($hours as $r) if ($r[0] + 3600 > $from) $pts[] = array_merge($r, [3600]);
+    }
+
+    // range stats, sample-weighted
+    $sum = 0.0; $n = 0; $lo = null; $hi = null;
+    foreach ($pts as $p) {
+        $sum += $p[1] * $p[4]; $n += $p[4];
+        $lo = ($lo === null) ? $p[2] : min($lo, $p[2]);
+        $hi = ($hi === null) ? $p[3] : max($hi, $p[3]);
+    }
+    return [
+        'range'  => $range,
+        'from'   => $from,
+        'to'     => $now,
+        'points' => array_map(function ($p) { return [$p[0], $p[1], $p[2], $p[3], $p[5]]; }, $pts),   // [ts, avg, min, max, step]
+        'avg'    => $n ? round($sum / $n, 1) : null,
+        'min'    => $lo,
+        'max'    => $hi,
     ];
 }

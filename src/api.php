@@ -194,6 +194,14 @@ switch ($action) {
         echo json_encode(energy_summary($rate, $cur, $pos));
         break;
 
+    case 'power':
+        energyd_start();                    // the collector also records the power history
+        $psuKnown = $psu ? $psu['known'] : false;
+        $out = power_series($_REQUEST['range'] ?? '24h');
+        $out['kind'] = $psuKnown ? 'input' : 'output';   // wall-draw estimate, or PSU output on an unknown model
+        echo json_encode($out);
+        break;
+
     case 'setrate':
         $cfg = read_config();
         if (isset($_REQUEST['rate']))     $cfg['rate'] = max(0, floatval($_REQUEST['rate']));
