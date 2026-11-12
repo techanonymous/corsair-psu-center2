@@ -106,6 +106,12 @@ ok(abs($rg['kwh'] - 0.66) < 0.01, '6h kWh = 110 W * 6 h = 0.66');
 ok($rg['stats']['pout']['max'] == 150.0, 'peak uses per-bucket max');
 ok(hist_range('1h', $now)['step'] === 10, '1h uses 10 s tier');
 ok(hist_range('bogus', $now)['range'] === '24h', 'bad range -> 24h');
+// what the UI needs to say which ranges it can actually fill
+ok(is_int($rg['since']) && $rg['since'] > 0, 'since (oldest sample) reported');
+ok($rg['since'] < $rg['rows'][0][0], 'since reaches past this window, not just its first row');
+ok($rg['spans']['1h'] === 3600 && $rg['spans']['7d'] === 604800, 'spans per range for the window label');
+$d24 = hist_range('24h', $now);
+ok($d24['since'] > $d24['from'], '12 h of samples under a 24h ask: since > from, so the UI warns');
 hist_save($h, true);
 $fj = json_decode(file_get_contents(CPC_HIST_FLASH), true);
 ok(!isset($fj['tiers'][10]) && isset($fj['tiers'][60]), 'flash copy drops t10');

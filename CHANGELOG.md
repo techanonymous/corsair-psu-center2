@@ -4,6 +4,22 @@ All notable changes to **Corsair PSU Center v2** (and, below the first v2 entry,
 Corsair PSU Center it was forked from), newest first. This mirrors the in‑plugin
 changelog shown in Unraid's Community Applications. Versions are date‑based (`YYYY.MM.DD`).
 
+## 2026.11.12b (v2)
+- **New:** the range controls say what is actually on screen. Under the Power History ranges
+  you now get, for example, `Showing 11 Nov 13:25 → 12 Nov 04:12 (UTC+0) · 14h 47m · 888
+  points at 60s`. A button only ever said what you *asked* for, and until a history is long
+  enough, 24h, 7d and 30d all draw the same few hours - which reads as a broken graph rather
+  than a short record. Ranges longer than the record are underlined and explain themselves on
+  hover. The Daily Energy chart and the month filter carry the same line.
+- **Changed:** the selected range is now unmistakably marked. The styling is scoped to the
+  plugin and given a ring, so Unraid's own CSS can no longer flatten it, and the buttons
+  report `aria-pressed` for screen readers.
+- **Fixed:** a range remembered by your browser that is no longer offered - a renamed option,
+  or a leftover from an older build - left every range button unmarked while the chart quietly
+  used the default. Stored choices are now checked against the buttons that exist.
+- Times in the new line follow your browser's timezone, so that timezone is named: a server on
+  one continent and a browser on another are not the same clock.
+
 ## 2026.11.12a (v2)
 - **Fixed:** restarting the collector (an update or reinstall) no longer blanks the last
   hour of the 1h graph. The flash copy of the history skips the 10-second tier and was

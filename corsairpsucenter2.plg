@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "corsairpsucenter2">
 <!ENTITY author    "techanonymous">
-<!ENTITY version   "2026.11.12a">
+<!ENTITY version   "2026.11.12b">
 <!ENTITY launch    "CorsairPSUCenter2">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY source    "&gitURL;/archive/&name;-&version;-x86_64.txz">
-<!ENTITY md5       "819fa224bc432b9189a4457b3202229d">
+<!ENTITY md5       "207ffbc9e57089388a67ba8c877db0bf">
 <!ENTITY plugdir   "/boot/config/plugins/&name;">
 <!ENTITY oldname   "corsairpsucenter">
 <!ENTITY olddir    "/boot/config/plugins/&oldname;">
@@ -23,6 +23,18 @@
         support="https://github.com/techanonymous/corsair-psu-center2/issues">
 
 <CHANGES>
+###2026.11.12b
+- New: the range controls say what is actually on the chart. Under the Power
+  History ranges you now get, for example: "Showing 11 Nov 13:25 -> 12 Nov
+  04:12 (UTC+0) - 14h 47m - 888 points at 60s". A button only ever said what
+  you asked for, and until a history is long enough, 24h, 7d and 30d all draw
+  the same few hours, which looks like a broken graph rather than a short
+  record. Ranges longer than the record are underlined and say why on hover.
+  Daily Energy and the month filter carry the same line.
+- Changed: the selected range is marked far more clearly, and the buttons now
+  report their pressed state to screen readers.
+- Fixed: a range remembered by your browser that is no longer offered left
+  every range button unmarked while the chart used the default.
 ###2026.11.12a
 - Fixed: restarting the plugin's collector (an update, a reinstall) no longer
   blanks the last hour of the 1h graph. Longer ranges were never affected.

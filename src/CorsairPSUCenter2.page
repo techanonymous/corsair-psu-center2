@@ -50,7 +50,21 @@ Icon="corsairpsucenter2.png"
 .cpc-btn { background:#2a2f38; color:#e8eaed; border:1px solid #39404b; border-radius:4px;
            padding:.45em .9em; cursor:pointer; font-size:.9em; margin:0 .45em .45em 0; }
 .cpc-btn:hover { background:#333944; }
-.cpc-btn.active { background:#f0c040; color:#16181d; border-color:#f0c040; font-weight:600; }
+/* Scoped to #cpc and given a ring, not just a background swap: Unraid's global
+   CSS has out-specified plain classes before (see the .cpc-select note), and a
+   quiet colour change on one of seven identical grey pills is easy to miss. */
+#cpc .cpc-btn.active { background:#f0c040; color:#16181d; border-color:#f0c040; font-weight:600;
+            box-shadow:0 0 0 1px #f0c040 inset, 0 0 0 3px rgba(240,192,64,.28); }
+/* Selected (or offered) but longer than the record: the chart cannot really span
+   this far back. Kept clickable, marked so the window line is no surprise. */
+#cpc .cpc-btn.cpc-short { text-decoration:underline dashed #d08a3a 1px; text-underline-offset:3px; }
+#cpc .cpc-btn.cpc-none { opacity:.4; }
+/* Plain words on what the chart below is actually showing. */
+.cpc-window { font-size:.88em; color:#8a9099; margin:.05em 0 .4em; line-height:1.55; }
+.cpc-window b { color:#e8eaed; font-weight:600; font-variant-numeric:tabular-nums; }
+.cpc-window .k { color:#f0c040; font-weight:600; font-variant-numeric:tabular-nums; }
+.cpc-window .warn { color:#e0a24a; }
+.cpc-window .tz { color:#6c727b; }
 .cpc-preset { display:block; width:100%; text-align:left; background:#22262e; color:#c8ccd2;
               border:1px solid #2a2f38; border-radius:4px; padding:.55em .75em; margin-bottom:.35em;
               cursor:pointer; font-size:.92em; }
@@ -261,6 +275,7 @@ Icon="corsairpsucenter2.png"
           <button class="cpc-btn cpc-tog" data-v="temp" title="VRM and case temperature (°C, right axis)">Temperature</button>
           <button class="cpc-btn cpc-tog" data-v="fans" title="PSU fan and system fan average (RPM, right axis)">Fans</button>
         </div>
+        <div class="cpc-window" id="phWindow">&nbsp;</div>
         <div class="cpc-hstats" id="phStats"></div>
         <div class="cpc-chartwrap">
           <svg id="histSvg"></svg>
@@ -278,6 +293,7 @@ Icon="corsairpsucenter2.png"
             <button class="cpc-btn active" data-r="30">30 Days</button><button class="cpc-btn" data-r="90">90 Days</button><button class="cpc-btn" data-r="m12">12 Months</button>
           </span>
         </div>
+        <div class="cpc-window" id="dailyWindow">&nbsp;</div>
         <div class="cpc-chart-read" id="dailyRead">&nbsp;</div>
         <svg class="cpc-chart" id="dailySvg"></svg>
       </div>
@@ -304,6 +320,7 @@ Icon="corsairpsucenter2.png"
           <button class="cpc-btn" data-n="12">12 Months</button>
           <button class="cpc-btn active" data-n="0">All</button>
         </div>
+        <div class="cpc-window" id="histWindow">&nbsp;</div>
         <div class="cpc-hist" id="histMonths">
           <div class="cpc-hrow cpc-hhead"><span class="cpc-hc-label">Month</span><span class="cpc-hc-num">Energy</span><span class="cpc-hc-num">Cost</span></div>
           <div id="histBodyM"></div>
@@ -377,7 +394,7 @@ const ETILES = [
   {k:'today', l:'Today'}, {k:'week', l:'This Week'}, {k:'month', l:'This Month'},
   {k:'last_month', l:'Last Month'}, {k:'year', l:'This Year'}, {k:'lifetime', l:'Lifetime'}
 ];
-let lastRate = 0, lastCur = '$', lastPos = 'before';
+let lastRate = 0, lastCur = '$', lastPos = 'before', lastSince = 0;
 const CURRENCIES = [
   {sym:'$',  label:'$   US Dollar',         pos:'before'},
   {sym:'€',  label:'€   Euro',              pos:'after'},
@@ -655,6 +672,7 @@ function money(a){ const s = Number(a).toFixed(2); return lastPos==='after' ? (s
 function applyEnergy(e){
   if (!e) return;
   lastRate = e.rate || 0; lastCur = e.currency || '$'; lastPos = e.currency_pos || 'before';
+  lastSince = e.since || 0;
   ETILES.forEach(t=>{
     const d = e[t.k] || {kwh:0, cost:0};
     document.getElementById('ek_'+t.k).textContent = kwhFmt(d.kwh);
@@ -670,8 +688,34 @@ function applyEnergy(e){
   syncCurrencyControls();
 }
 function costCell(v){ return lastRate>0 ? money(v) : '—'; }
+/* "6 Months" only filters the record that exists. With one month logged, the
+   6 and 12 month buttons list exactly the same rows, so state how long the
+   record is rather than implying it is longer. */
+function histFilterSync(){
+  const have = histMonths.length;
+  document.querySelectorAll('#histFilter .cpc-btn').forEach(b=>{
+    const n = parseInt(b.dataset.n, 10) || 0, on = n === histN;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.remove('cpc-short', 'cpc-none'); b.removeAttribute('title');
+    if (n > 0 && have < n){
+      b.classList.add('cpc-short');
+      if (!have) b.classList.add('cpc-none');
+      b.title = 'Only ' + have + ' month' + (have === 1 ? '' : 's') + ' in the record, so this cannot show ' + n + ' yet.';
+    }
+  });
+  const el = document.getElementById('histWindow'); if (!el) return;
+  if (!have){ el.innerHTML = '<span class="warn">No months in the record yet — the first appears when this month ends.</span>'; return; }
+  const newest = histMonths[0].label, oldest = histMonths[histMonths.length-1].label;   // newest first
+  const shown = histN > 0 ? Math.min(histN, have) : have;
+  let h = 'Showing <b>' + shown + '</b> of ' + have + ' month' + (have === 1 ? '' : 's') + ' recorded'
+        + ' <span class="tz">(' + newest + (have > 1 ? ' back to ' + oldest : '') + ')</span>';
+  if (histN > 0 && histN > have) h += ' &nbsp;·&nbsp; <span class="warn">only ' + have + ' in the record</span>';
+  el.innerHTML = h;
+}
 function renderHist(){
   const mtb = document.getElementById('histBodyM'); if (!mtb) return;
+  histFilterSync();
   const rows = histN>0 ? histMonths.slice(0, histN) : histMonths;
   mtb.innerHTML = rows.length ? rows.map(m=>
     `<div class="cpc-hrow"><span class="cpc-hc-label">${m.label}</span><span class="cpc-hc-num">${kwhFmt(m.kwh)} kWh</span><span class="cpc-hc-num cost">${costCell(m.cost)}</span></div>`).join('')
@@ -682,12 +726,7 @@ function renderHist(){
     : `<div class="cpc-hrow empty">—</div>`;
 }
 document.querySelectorAll('#histFilter .cpc-btn').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('#histFilter .cpc-btn').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    histN = parseInt(b.dataset.n, 10) || 0;
-    renderHist();
-  };
+  b.onclick = ()=>{ histN = parseInt(b.dataset.n, 10) || 0; renderHist(); };
 });
 
 // ---- pick any specific month / year ----
@@ -867,8 +906,9 @@ function whenLabel(ts, step){
 
 // --- power draw ---
 // --- daily energy ---
+const D_RANGES = ['30','90','m12'];
 let dRange = '30', dDays = [], dHover = null, dBars = [];
-try { dRange = localStorage.getItem('cpc2DailyRange') || '30'; } catch(e) {}
+try { const sd = localStorage.getItem('cpc2DailyRange'); if (sd && D_RANGES.includes(sd)) dRange = sd; } catch(e) {}
 function dailyData(){
   const out = [], now = new Date();
   if (dRange === 'm12'){
@@ -911,10 +951,49 @@ function setDailyHover(i){
   document.getElementById('dailyRead').innerHTML = !r.has ? `${r.full} &nbsp;—&nbsp; no data`
     : `${r.full}${r.partial ? ' (so far)' : ''} &nbsp;—&nbsp; <span class="k">${kwhFmt(r.kwh)} kWh</span>` + (lastRate > 0 ? ` <span class="c">${money(costOf(r))}</span>` : '');
 }
+/* How much of the daily record exists: what these three buttons can be
+   filled from. dDays comes oldest-first from the API. */
+function dailyRecord(){
+  if (!dDays.length) return null;
+  const a = new Date(dDays[0].date + 'T12:00:00'), z = new Date(dDays[dDays.length-1].date + 'T12:00:00');
+  return {days: Math.round((z-a)/864e5) + 1,
+          months: new Set(dDays.map(x=>x.date.slice(0,7))).size,
+          since: dDays[0].date, until: dDays[dDays.length-1].date};
+}
+function dailyButtons(){
+  const rec = dailyRecord();
+  document.querySelectorAll('#dailyRange .cpc-btn').forEach(b=>{
+    const on = b.dataset.r === dRange;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.remove('cpc-short', 'cpc-none'); b.removeAttribute('title');
+    if (!rec) return;
+    const byMonth = b.dataset.r === 'm12';
+    const have = byMonth ? rec.months : rec.days, need = byMonth ? 12 : parseInt(b.dataset.r, 10);
+    if (have >= need) return;
+    b.classList.add('cpc-short');
+    if (!have) b.classList.add('cpc-none');
+    b.title = 'Only ' + have + ' ' + (byMonth ? 'month' : 'day') + (have === 1 ? '' : 's') + ' of energy recorded so far ('
+            + rec.since + ' onwards), so this cannot be ' + (byMonth ? '12 months' : need + ' days') + ' long yet.';
+  });
+}
+function dailyWindow(){
+  const el = document.getElementById('dailyWindow'); if (!el) return;
+  const withData = dBars.filter(r=>r.has);
+  const spanTxt = dRange === 'm12' ? 'Last 12 months' : 'Last ' + dRange + ' days';
+  if (!withData.length){ el.innerHTML = '<span class="warn">' + spanTxt + ' — no energy recorded in this range yet.</span>'; return; }
+  const txt = r => dRange === 'm12' ? r.full : r.label;
+  let h = spanTxt + ': showing <span class="k">' + txt(withData[0]) + ' &rarr; ' + txt(withData[withData.length-1]) + '</span>'
+        + ' &nbsp;·&nbsp; <b>' + withData.length + '</b> of ' + dBars.length + (dRange === 'm12' ? ' months' : ' days') + ' with data';
+  if (withData.length < dBars.length)
+    h += ' &nbsp;·&nbsp; <span class="warn">energy record starts ' + (lastSince ? fmtDay(lastSince) : txt(withData[0])) + '</span>';
+  el.innerHTML = h;
+}
 function drawDaily(){
   const svg = document.getElementById('dailySvg'); if (!svg) return;
-  document.querySelectorAll('#dailyRange .cpc-btn').forEach(x=>x.classList.toggle('active', x.dataset.r===dRange));
+  dailyButtons();
   dBars = dailyData();
+  dailyWindow();
   const b = chartBox(svg), n = dBars.length;
   if (!dBars.some(r=>r.has)){
     svg.innerHTML = `<text x="${(b.X0+b.X1)/2}" y="${(b.Y0+b.Y1)/2}" fill="#7c828b" font-size="${b.fs+1}" text-anchor="middle">No energy recorded in this range yet.</text>`;
@@ -1002,10 +1081,35 @@ q('alTest').onclick = ()=> post({action:'testalert'}).then(r=> msg(r.ok, r.outpu
 // chart, so you can line up e.g. power draw against fan speed. Watts use the
 // left axis, °C the first right axis, RPM the outer right axis; an axis is only
 // drawn while one of its layers is on.
-let phRange = '24h', phData = null;
+/* ---- "what am I looking at?" helpers -------------------------------
+   A range button only records what was asked for. Whenever the record is
+   shorter than that - fresh install, or a tier that rolled over - 24h, 7d and
+   30d draw the very same short window, so each range control also spells out
+   the span actually on screen. Times are drawn in the browser's zone, which is
+   not always the server's, so that gets named too. */
+function fmtDur(s){
+  s = Math.max(0, Math.round(s));
+  const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+  if (!d) return h ? h + 'h ' + String(m).padStart(2,'0') + 'm' : (m ? m + 'm' : s + 's');
+  if (d >= 60 || !h) return d + 'd';
+  return d + 'd ' + String(h).padStart(2,'0') + 'h';
+}
+function fmtDay(ts){ const d = new Date(ts*1000); return d.getDate() + ' ' + MON[d.getMonth()]; }
+function fmtClock(ts){ const d = new Date(ts*1000); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+function fmtStamp(ts){ return fmtDay(ts) + ' ' + fmtClock(ts); }
+function tzLabel(){
+  const off = -new Date().getTimezoneOffset(), a = Math.abs(off);
+  return 'UTC' + (off < 0 ? '-' : '+') + Math.floor(a/60) + (a % 60 ? ':' + String(a % 60).padStart(2,'0') : '');
+}
+const PH_RANGES = ['1h','6h','12h','24h','7d','30d','365d'];
+let phRange = '24h', phData = null, phMeta = null;
 let phOn = {power:true, breakdown:false, temp:false, fans:false};
 try {
-  phRange = localStorage.getItem('cpc2Range') || phRange;
+  // Only accept a stored value we still offer. Anything else (a rename, a
+  // hand-edited key) used to leave every range button unhighlighted while the
+  // chart carried on with the fallback range.
+  const sr = localStorage.getItem('cpc2Range');
+  if (sr && PH_RANGES.includes(sr)) phRange = sr;
   const sv = JSON.parse(localStorage.getItem('cpc2Layers') || 'null');
   if (sv && typeof sv === 'object') for (const k in phOn) phOn[k] = !!sv[k];
 } catch(e){}
@@ -1058,7 +1162,28 @@ function niceMax(x){ if (!(x>0)) return 1; const p=Math.pow(10, Math.floor(Math.
 function axFmt(y, unit){ return unit==='°C' ? Math.round(y) : (y>=1000 ? (y/1000).toFixed(y%1000?1:0)+'k' : Math.round(y)); }
 function valFmt(x, unit){ return unit==='RPM' ? Math.round(x).toLocaleString() : Number(x).toFixed(1); }
 
+/* Spell out the window actually drawn, taken from the rows that came back, and
+   say so when the record cannot cover the requested span. */
+function phWindow(){
+  const el = q('phWindow'); if (!el) return;
+  const rows = phData && phData.rows ? phData.rows : [];
+  const asked = phData ? phData.range : phRange;
+  if (!rows.length){
+    el.innerHTML = '<span class="warn">No samples in the last ' + asked + ' yet — nothing stored for this window.</span>';
+    return;
+  }
+  const first = rows[0][0], last = rows[rows.length-1][0];
+  const shown = rows.length > 1 ? fmtDur(last-first) : 'a single ' + phData.step + 's bucket';
+  const oneDay = new Date(first*1000).toDateString() === new Date(last*1000).toDateString();
+  let h = 'Showing <span class="k">' + fmtStamp(first) + ' &rarr; ' + (oneDay ? fmtClock(last) : fmtStamp(last)) + '</span>'
+        + ' <span class="tz">(' + tzLabel() + ')</span> &nbsp;·&nbsp; <b>' + shown + '</b>'
+        + ' &nbsp;·&nbsp; ' + rows.length + ' points at ' + phData.step + 's';
+  if (phData.since && first > phData.from + phData.step)
+    h += ' &nbsp;·&nbsp; <span class="warn">not a full ' + asked + ' — the record starts ' + fmtDay(phData.since) + '</span>';
+  el.innerHTML = h;
+}
 function drawHist(){
+  phWindow();
   const svg = q('histSvg'); if (!svg || !phData) return;
   const W = Math.max(300, svg.clientWidth), H = Math.max(160, svg.clientHeight);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -1204,10 +1329,30 @@ function drawHist(){
 }
 
 function loadHist(){
-  fetch(API+'?action=history&range='+encodeURIComponent(phRange)).then(r=>r.json()).then(d=>{ phData = d; drawHist(); }).catch(()=>{});
+  fetch(API+'?action=history&range='+encodeURIComponent(phRange)).then(r=>r.json()).then(d=>{
+    phData = d;
+    phMeta = {since: d.since || null, spans: d.spans || null, to: d.to || Math.floor(Date.now()/1000)};
+    phButtons(); drawHist();
+  }).catch(()=>{});
 }
+/* Active = the selected range. A range longer than the whole record is marked,
+   not hidden: clicking it still shows everything there is, it just cannot span
+   that far back yet. */
 function phButtons(){
-  document.querySelectorAll('#phRange [data-r]').forEach(b=>b.classList.toggle('active', b.dataset.r===phRange));
+  document.querySelectorAll('#phRange [data-r]').forEach(b=>{
+    const on = b.dataset.r === phRange;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.remove('cpc-short', 'cpc-none'); b.removeAttribute('title');
+    const span = phMeta && phMeta.spans ? phMeta.spans[b.dataset.r] : null;
+    if (!phMeta || !phMeta.since || !span) return;
+    const have = phMeta.to - phMeta.since;
+    if (have >= span * 0.98) return;
+    b.classList.add('cpc-short');
+    if (have < 120) b.classList.add('cpc-none');
+    b.title = 'The record covers ' + fmtDur(have) + ' so far (starts ' + fmtDay(phMeta.since)
+            + '), so this cannot span ' + b.textContent + ' yet — it shows everything there is.';
+  });
   document.querySelectorAll('#phRange [data-v]').forEach(b=>{ b.classList.toggle('active', !!phOn[b.dataset.v]); b.setAttribute('aria-pressed', phOn[b.dataset.v]?'true':'false'); });
 }
 document.querySelectorAll('#phRange [data-r]').forEach(b=>b.onclick = ()=>{

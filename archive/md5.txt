@@ -1,3 +1,4 @@
+207ffbc9e57089388a67ba8c877db0bf  corsairpsucenter2-2026.11.12b-x86_64.txz
 819fa224bc432b9189a4457b3202229d  corsairpsucenter2-2026.11.12a-x86_64.txz
 b00b3d0f4bbce1589e03ed60bd2a1cb9  corsairpsucenter2-2026.11.12-x86_64.txz
 6f46b41717b32ddeee1fbe95ae76f321  corsairpsucenter2-2026.11.11a-x86_64.txz

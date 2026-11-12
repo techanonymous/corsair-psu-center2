@@ -345,12 +345,24 @@ function hist_range($range, $now = null) {
         if (isset($peak[$k])) foreach ($rows as $r) if ($r[$peak[$k]] !== null) $mx = max($mx, $r[$peak[$k]]);
         $stats[$k] = ['min' => min($v), 'avg' => round(array_sum($v) / count($v), 1), 'max' => $mx];
     }
+    /* Oldest sample in any tier = how long the collector has been recording.
+       The UI needs this to say which ranges it can actually fill: a fresh
+       install will draw the same short window for 24h, 7d and 30d, and a bare
+       "30d" button hides that. */
+    $since = null;
+    foreach ($h['tiers'] as $tier) {
+        if (empty($tier['rows'])) continue;
+        $first = $tier['rows'][0][0];
+        if ($since === null || $first < $since) $since = $first;
+    }
     return [
         'range' => $range, 'step' => $step, 'from' => $from, 'to' => $now,
         'cols'  => ['ts', 'pout', 'pout_max', 'pin', 'vrm', 'vrm_max', 'case', 'fan', 'cpu', 'gpu', 'drv', 'sfan', 'nfan'],
         'rows'  => $rows,
         'stats' => $stats,
         'kwh'   => $whKnown ? round($wh / 1000, 3) : null,
+        'since' => $since,
+        'spans' => array_map(function ($r) { return $r[1]; }, HIST_RANGES),   // range => seconds
     ];
 }
 

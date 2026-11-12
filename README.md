@@ -29,7 +29,9 @@ in its own tab.
 with four layers you switch on and off independently, so you can line them up and spot
 correlations (say, power draw against fan speed). Watts use the left axis, °C and RPM get
 their own scales on the right, and hovering shows every visible value at that moment. The
-layers you pick are remembered per browser.
+layers you pick are remembered per browser. A line under the range buttons spells out the
+window actually drawn - naming your browser's timezone, which is often not the server's -
+and flags any range your history is not yet long enough to fill.
 
 - **Power** - wall power and PSU output, with average, peak, kWh used and cost for the range.
 - **Breakdown** - a stacked graph of what's driving the PSU's draw: **CPU** (measured
