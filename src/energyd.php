@@ -68,6 +68,7 @@ register_shutdown_function(function () {
     global $hist;
     eflash();
     hist_save($hist, true);
+    hist_save($hist);        // RAM copy last, so a restart (not a reboot) keeps the 1 h / 10 s tier
     if (file_exists(CPC_EPID) && trim(@file_get_contents(CPC_EPID)) == getmypid()) @unlink(CPC_EPID);
 });
 

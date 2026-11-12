@@ -4,6 +4,11 @@ All notable changes to **Corsair PSU Center v2** (and, below the first v2 entry,
 Corsair PSU Center it was forked from), newest first. This mirrors the in‑plugin
 changelog shown in Unraid's Community Applications. Versions are date‑based (`YYYY.MM.DD`).
 
+## 2026.11.12a (v2)
+- **Fixed:** restarting the collector (an update or reinstall) no longer blanks the last
+  hour of the 1h graph. The flash copy of the history skips the 10-second tier and was
+  being picked over the RAM copy that has it. Longer ranges were never affected.
+
 ## 2026.11.12 (v2)
 - **Changed:** the Power History graph's Power, Breakdown, Temperature and Fans views are now
   on/off layers on **one chart**, so any combination shows at once and you can see how
