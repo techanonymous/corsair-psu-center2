@@ -4,6 +4,15 @@ All notable changes to **Corsair PSU Center v2** (and, below the first v2 entry,
 Corsair PSU Center it was forked from), newest first. This mirrors the in‑plugin
 changelog shown in Unraid's Community Applications. Versions are date‑based (`YYYY.MM.DD`).
 
+## 2026.11.12 (v2)
+- **Changed:** the Power History graph's Power, Breakdown, Temperature and Fans views are now
+  on/off layers on **one chart**, so any combination shows at once and you can see how
+  power draw, temperatures and fan speeds move together. Watts sit on the left axis; °C and
+  RPM get their own scales on the right (dashed and dotted lines). Hovering shows every
+  visible value at that moment, and your choice of layers is remembered.
+- System fans stay as one average line; hover it to see how many spinning fans make up
+  the average.
+
 ## 2026.11.11a (v2)
 - **New:** a **Daily Energy** bar chart: kWh per day for the last 30 or 90 days, or per
   month for the last 12 months, with cost on hover. It's carried over from the

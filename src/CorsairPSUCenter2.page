@@ -122,6 +122,11 @@ Icon="corsairpsucenter2.png"
 .cpc-tabs { display:flex; flex-wrap:wrap; gap:.3em; margin-bottom:.55em; align-items:center; }
 .cpc-tabs .cpc-btn { margin:0; }
 .cpc-tabs .sep { width:1px; height:1.6em; background:#2a2f38; margin:0 .4em; }
+.cpc-tabs .lbl { font-size:.72em; text-transform:uppercase; letter-spacing:.8px; color:#8a9099; margin-right:.2em; }
+.cpc-tog::before { content:''; display:inline-block; width:.75em; height:.75em; border:1.5px solid currentColor; border-radius:2px;
+                   margin-right:.45em; vertical-align:-.08em; opacity:.7; }
+.cpc-tog.active::before { background:currentColor; opacity:1;
+                   box-shadow:inset 0 0 0 2px #f0c040; }
 .cpc-chartwrap { position:relative; }
 #histSvg { width:100%; height:18em; display:block; }
 #histSvg text { font-family:inherit; }
@@ -250,10 +255,11 @@ Icon="corsairpsucenter2.png"
           <button class="cpc-btn" data-r="30d">30d</button>
           <button class="cpc-btn" data-r="365d">365d</button>
           <span class="sep"></span>
-          <button class="cpc-btn active" data-v="power">Power</button>
-          <button class="cpc-btn" data-v="breakdown">Breakdown</button>
-          <button class="cpc-btn" data-v="temp">Temperature</button>
-          <button class="cpc-btn" data-v="fans">Fans</button>
+          <span class="lbl">Show</span>
+          <button class="cpc-btn cpc-tog active" data-v="power" title="Wall power and PSU output (W, left axis)">Power</button>
+          <button class="cpc-btn cpc-tog" data-v="breakdown" title="CPU / GPU / drives / everything else / PSU losses, stacked (W, left axis)">Breakdown</button>
+          <button class="cpc-btn cpc-tog" data-v="temp" title="VRM and case temperature (°C, right axis)">Temperature</button>
+          <button class="cpc-btn cpc-tog" data-v="fans" title="PSU fan and system fan average (RPM, right axis)">Fans</button>
         </div>
         <div class="cpc-hstats" id="phStats"></div>
         <div class="cpc-chartwrap">
@@ -992,37 +998,49 @@ q('alSave').onclick = ()=>{
 q('alTest').onclick = ()=> post({action:'testalert'}).then(r=> msg(r.ok, r.output||'Failed.'));
 
 // ---- v2: power history chart ----
-let phRange = '24h', phView = 'power', phData = null;
-try { phRange = localStorage.getItem('cpc2Range') || phRange; phView = localStorage.getItem('cpc2View') || phView; } catch(e){}
+// Power, Breakdown, Temperature and Fans are independent on/off layers on ONE
+// chart, so you can line up e.g. power draw against fan speed. Watts use the
+// left axis, °C the first right axis, RPM the outer right axis; an axis is only
+// drawn while one of its layers is on.
+let phRange = '24h', phData = null;
+let phOn = {power:true, breakdown:false, temp:false, fans:false};
+try {
+  phRange = localStorage.getItem('cpc2Range') || phRange;
+  const sv = JSON.parse(localStorage.getItem('cpc2Layers') || 'null');
+  if (sv && typeof sv === 'object') for (const k in phOn) phOn[k] = !!sv[k];
+} catch(e){}
 const C = {pin:'#b98ee6', pout:'#f0c040', cpu:'#6fa8dc', gpu:'#6fc26f', drv:'#e0904a', other:'#7a8089', loss:'#d05353',
-           vrm:'#e0904a', vrmx:'#f0c040', case:'#6fa8dc', fan:'#6fa8dc', sfan:'#6fc26f'};
+           vrm:'#ff7a45', vrmx:'#ffb38a', case:'#ffd166', fan:'#4dd0c8', sfan:'#f48fb1'};
 // row columns from api: ts pout pout_max pin vrm vrm_max case fan cpu gpu drv sfan nfan
 const I = {ts:0, pout:1, poutx:2, pin:3, vrm:4, vrmx:5, case:6, fan:7, cpu:8, gpu:9, drv:10, sfan:11, nfan:12};
 const v = (r,k) => (r[I[k]]===undefined ? null : r[I[k]]);
+const AX = {W:{unit:'W'}, C:{unit:'°C'}, R:{unit:'RPM'}};
 
+/* Every visible series: {key,label,color,axis,val(r),stack,dash,area,extra(r)}. */
 function phSeries(rows){
-  // returns {unit, stacked, series:[{key,label,color,val(r),dash,area}]}
-  if (phView==='temp') return {unit:'°C', series:[
-    {key:'vrm',  label:'VRM (avg)', color:C.vrm,  val:r=>v(r,'vrm')},
-    {key:'vrmx', label:'VRM (peak)',color:C.vrmx, val:r=>v(r,'vrmx'), dash:true},
-    {key:'case', label:'Case',      color:C.case, val:r=>v(r,'case')}]};
-  if (phView==='fans') return {unit:'RPM', series:[
-    {key:'fan',  label:'PSU fan',            color:C.fan,  val:r=>v(r,'fan')},
-    {key:'sfan', label:'System fans (avg)',  color:C.sfan, val:r=>v(r,'sfan'), extra:r=> v(r,'nfan')!==null ? ' · '+v(r,'nfan')+' fans' : ''}]};
-  if (phView==='breakdown') {
-    const has = k => rows.some(r=>v(r,k)!==null);
+  const out = [], has = k => rows.some(r=>v(r,k)!==null);
+  if (phOn.breakdown) {
     const known = r => (v(r,'cpu')||0)+(v(r,'gpu')||0)+(v(r,'drv')||0);
-    const ser = [];
-    if (has('cpu')) ser.push({key:'cpu', label:'CPU', color:C.cpu, val:r=>v(r,'cpu')});
-    if (has('gpu')) ser.push({key:'gpu', label:'GPU', color:C.gpu, val:r=>v(r,'gpu')});
-    if (has('drv')) ser.push({key:'drv', label:'Drives (estimated)', color:C.drv, val:r=>v(r,'drv')});
-    ser.push({key:'other', label:'Everything else', color:C.other, val:r=> v(r,'pout')===null?null:Math.max(0, v(r,'pout')-known(r))});
-    if (has('pin')) ser.push({key:'loss', label:'PSU losses', color:C.loss, val:r=> (v(r,'pin')===null||v(r,'pout')===null)?null:Math.max(0, v(r,'pin')-v(r,'pout'))});
-    return {unit:'W', stacked:true, series:ser};
+    if (has('cpu')) out.push({key:'cpu', label:'CPU', color:C.cpu, axis:'W', stack:true, val:r=>v(r,'cpu')});
+    if (has('gpu')) out.push({key:'gpu', label:'GPU', color:C.gpu, axis:'W', stack:true, val:r=>v(r,'gpu')});
+    if (has('drv')) out.push({key:'drv', label:'Drives (estimated)', color:C.drv, axis:'W', stack:true, val:r=>v(r,'drv')});
+    out.push({key:'other', label:'Everything else', color:C.other, axis:'W', stack:true, val:r=> v(r,'pout')===null?null:Math.max(0, v(r,'pout')-known(r))});
+    if (has('pin')) out.push({key:'loss', label:'PSU losses', color:C.loss, axis:'W', stack:true, val:r=> (v(r,'pin')===null||v(r,'pout')===null)?null:Math.max(0, v(r,'pin')-v(r,'pout'))});
   }
-  return {unit:'W', series:[
-    {key:'pin',  label:'Power in (wall, estimated)', color:C.pin,  val:r=>v(r,'pin'), area:true},
-    {key:'pout', label:'Power out (DC)',             color:C.pout, val:r=>v(r,'pout')}]};
+  if (phOn.power) {
+    out.push({key:'pin',  label:'Power in (wall, estimated)', color:C.pin,  axis:'W', area:!phOn.breakdown, val:r=>v(r,'pin')});
+    out.push({key:'pout', label:'Power out (DC)',             color:C.pout, axis:'W', val:r=>v(r,'pout')});
+  }
+  if (phOn.temp) {
+    out.push({key:'vrm',  label:'VRM temp',  color:C.vrm,  axis:'C', dash:'6 3', val:r=>v(r,'vrm')});
+    out.push({key:'case', label:'Case temp', color:C.case, axis:'C', dash:'6 3', val:r=>v(r,'case')});
+  }
+  if (phOn.fans) {
+    out.push({key:'fan',  label:'PSU fan', color:C.fan, axis:'R', dash:'2 3', val:r=>v(r,'fan')});
+    if (has('sfan')) out.push({key:'sfan', label:'System fans (avg)', color:C.sfan, axis:'R', dash:'2 3', val:r=>v(r,'sfan'),
+      extra:r=> v(r,'nfan')!==null ? ' across '+v(r,'nfan')+' spinning fan'+(v(r,'nfan')==1?'':'s') : ''});
+  }
+  return out;
 }
 
 function fmtTick(ts){
@@ -1037,31 +1055,41 @@ function fmtTip(ts){
   return d.toLocaleString([], {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
 }
 function niceMax(x){ if (!(x>0)) return 1; const p=Math.pow(10, Math.floor(Math.log10(x))); for (const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if (m*p>=x) return m*p; return 10*p; }
+function axFmt(y, unit){ return unit==='°C' ? Math.round(y) : (y>=1000 ? (y/1000).toFixed(y%1000?1:0)+'k' : Math.round(y)); }
+function valFmt(x, unit){ return unit==='RPM' ? Math.round(x).toLocaleString() : Number(x).toFixed(1); }
 
 function drawHist(){
   const svg = q('histSvg'); if (!svg || !phData) return;
   const W = Math.max(300, svg.clientWidth), H = Math.max(160, svg.clientHeight);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  const L=50, R=W-12, T=10, B=H-24;
   const rows = phData.rows || [], step = phData.step, from = phData.from, to = phData.to;
-  const sp = phSeries(rows);
-  const X = ts => L + (ts - from) / (to - from) * (R - L);
-  // values (stacked => cumulative)
-  const vals = rows.map(r=>{
-    let acc = 0;
-    return sp.series.map(s=>{ const x = s.val(r); if (!sp.stacked) return x; if (x===null) return null; acc += x; return acc; });
-  });
-  let ymax = 0;
-  vals.forEach(a=>a.forEach(x=>{ if (x!==null && x>ymax) ymax=x; }));
-  ymax = niceMax(ymax*1.05);
-  const Y = y => B - (y/ymax)*(B-T);
+  const ser = phSeries(rows);
+  const used = {W:ser.some(s=>s.axis==='W'), C:ser.some(s=>s.axis==='C'), R:ser.some(s=>s.axis==='R')};
+  const L = used.W ? 50 : 14, T = 10, B = H - 24;
+  const R = W - 12 - (used.C ? 38 : 0) - (used.R ? 46 : 0);
+  const X = ts => L + (ts - from) / Math.max(1, to - from) * (R - L);
+
+  // stacked layers accumulate; everything else is plotted as-is
+  const vals = rows.map(r=>{ let acc = 0; return ser.map(s=>{ const x = s.val(r); if (!s.stack) return x; if (x===null) return null; acc += x; return acc; }); });
+  const max = {W:0, C:0, R:0};
+  vals.forEach(a=>a.forEach((x,si)=>{ if (x!==null && x>max[ser[si].axis]) max[ser[si].axis] = x; }));
+  const top = {W:niceMax(max.W*1.05), C:niceMax(Math.max(40, max.C*1.1)), R:niceMax(max.R*1.08)};
+  const Y = (y, ax) => B - (y/top[ax])*(B-T);
+
   let h = `<rect x="${L}" y="${T}" width="${R-L}" height="${B-T}" fill="#14161a"/>`;
-  for (let i=0;i<=4;i++){
-    const y = ymax*i/4;
-    h += `<line x1="${L}" y1="${Y(y)}" x2="${R}" y2="${Y(y)}" stroke="#262b33"/>`;
-    h += `<text x="${L-6}" y="${Y(y)+4}" fill="#6c727b" font-size="11" text-anchor="end">${y>=1000?(y/1000).toFixed(y%1000?1:0)+'k':Math.round(y)}</text>`;
-  }
-  const unitTxt = `<text x="${L+6}" y="${T+14}" fill="#8a9099" font-size="11">${sp.unit}</text>`;
+  const gridAx = used.W ? 'W' : (used.C ? 'C' : 'R');
+  for (let i=0;i<=4;i++) h += `<line x1="${L}" y1="${Y(top[gridAx]*i/4, gridAx)}" x2="${R}" y2="${Y(top[gridAx]*i/4, gridAx)}" stroke="#262b33"/>`;
+  // axis labels: W on the left, °C then RPM on the right, tinted like their layers
+  const axCol = {W:'#6c727b', C:C.vrm, R:C.fan};
+  const axX = {W:L-6, C:R+6, R:R+6+(used.C?38:0)};
+  ['W','C','R'].forEach(ax=>{
+    if (!used[ax]) return;
+    const anchor = ax==='W' ? 'end' : 'start';
+    for (let i=0;i<=4;i++){
+      const y = top[ax]*i/4;
+      h += `<text x="${axX[ax]}" y="${Y(y,ax)+4}" fill="${axCol[ax]}" fill-opacity="${ax==='W'?1:.85}" font-size="11" text-anchor="${anchor}">${axFmt(y, AX[ax].unit)}</text>`;
+    }
+  });
   const nt = Math.max(2, Math.min(8, Math.floor((R-L)/110)));
   let lastLbl = '';
   for (let i=0;i<=nt;i++){
@@ -1069,54 +1097,75 @@ function drawHist(){
     h += `<line x1="${x}" y1="${T}" x2="${x}" y2="${B}" stroke="#1f232a"/>`;
     if (lbl === lastLbl) continue;
     lastLbl = lbl;
-    h += `<text x="${x}" y="${B+16}" fill="#6c727b" font-size="11" text-anchor="${i==0?'start':(i==nt?'end':'middle')}">${fmtTick(ts)}</text>`;
+    h += `<text x="${x}" y="${B+16}" fill="#6c727b" font-size="11" text-anchor="${i==0?'start':(i==nt?'end':'middle')}">${lbl}</text>`;
   }
   // split into runs wherever buckets are missing (server off, PSU gone)
   const runs = []; let cur = [];
   rows.forEach((r,i)=>{ if (cur.length && r[0]-rows[cur[cur.length-1]][0] > step*2.5){ runs.push(cur); cur=[]; } cur.push(i); });
   if (cur.length) runs.push(cur);
   const xOf = i => X(rows[i][0] + (step>=86400 ? 0 : step/2));
-  sp.series.forEach((s,si)=>{
+  const P = p => p[0].toFixed(1)+','+p[1].toFixed(1);
+  // draw stacked areas first, then lines on top (W lines, then °C, then RPM)
+  const order = ser.map((s,i)=>i).sort((a,b)=> (ser[b].stack?1:0)-(ser[a].stack?1:0) || 'WCR'.indexOf(ser[a].axis)-'WCR'.indexOf(ser[b].axis));
+  order.forEach(si=>{
+    const s = ser[si];
     runs.forEach(run=>{
-      const pts = run.filter(i=>vals[i][si]!==null).map(i=>[xOf(i), Y(vals[i][si])]);
-      if (!pts.length) return;
-      const line = pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
-      if (sp.stacked){
-        const base = run.filter(i=>vals[i][si]!==null).map(i=>{
-          let b = 0; for (let k=si-1;k>=0;k--) if (vals[i][k]!==null){ b = vals[i][k]; break; }
-          return [xOf(i), Y(b)];
-        }).reverse().map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
-        h += `<polygon points="${line} ${base}" fill="${s.color}" fill-opacity=".55" stroke="none"/>`;
-        h += `<polyline points="${line}" fill="none" stroke="${s.color}" stroke-width="1.2"/>`;
+      const idx = run.filter(i=>vals[i][si]!==null);
+      if (!idx.length) return;
+      const pts = idx.map(i=>[xOf(i), Y(vals[i][si], s.axis)]);
+      const line = pts.map(P).join(' ');
+      if (s.stack){
+        const base = idx.map(i=>{
+          let b = 0; for (let k=si-1;k>=0;k--) if (ser[k].stack && vals[i][k]!==null){ b = vals[i][k]; break; }
+          return [xOf(i), Y(b, 'W')];
+        }).reverse().map(P).join(' ');
+        h += `<polygon points="${line} ${base}" fill="${s.color}" fill-opacity="${phOn.temp||phOn.fans ? .4 : .55}" stroke="none"/>`;
+        h += `<polyline points="${line}" fill="none" stroke="${s.color}" stroke-width="1.1"/>`;
       } else {
-        if (s.area) h += `<polygon points="${pts[0][0].toFixed(1)},${B} ${line} ${pts[pts.length-1][0].toFixed(1)},${B}" fill="${s.color}" fill-opacity=".14"/>`;
+        if (s.area) h += `<polygon points="${pts[0][0].toFixed(1)},${B} ${line} ${pts[pts.length-1][0].toFixed(1)},${B}" fill="${s.color}" fill-opacity=".12"/>`;
         if (pts.length===1) h += `<circle cx="${pts[0][0]}" cy="${pts[0][1]}" r="2.5" fill="${s.color}"/>`;
-        h += `<polyline points="${line}" fill="none" stroke="${s.color}" stroke-width="1.8"${s.dash?' stroke-dasharray="5 4"':''}/>`;
+        h += `<polyline points="${line}" fill="none" stroke="${s.color}" stroke-width="1.8"${s.dash?` stroke-dasharray="${s.dash}"`:''}/>`;
       }
     });
   });
-  if (!rows.length) h += `<text x="${(L+R)/2}" y="${(T+B)/2}" fill="#7c828b" font-size="13" text-anchor="middle">No data for this range yet - it fills in as the collector runs.</text>`;
-  h += unitTxt;
+  const msgTxt = !ser.length ? 'Turn on Power, Breakdown, Temperature or Fans above.'
+               : (!rows.length ? 'No data for this range yet - it fills in as the collector runs.' : '');
+  if (msgTxt) h += `<text x="${(L+R)/2}" y="${(T+B)/2}" fill="#7c828b" font-size="13" text-anchor="middle">${msgTxt}</text>`;
+  // unit captions inside the plot corners
+  if (used.W) h += `<text x="${L+6}" y="${T+14}" fill="#8a9099" font-size="11">W</text>`;
+  const rc = [used.C?'°C':'', used.R?'RPM':''].filter(Boolean).join(' · ');
+  if (rc) h += `<text x="${R-6}" y="${T+14}" fill="#8a9099" font-size="11" text-anchor="end">${rc}</text>`;
   h += `<line id="phCursor" x1="0" y1="${T}" x2="0" y2="${B}" stroke="#e8eaed55" visibility="hidden"/>`;
   svg.innerHTML = h;
 
-  q('phLegend').innerHTML = sp.series.map(s=>`<span><span class="sw" style="background:${s.color}"></span>${s.label}</span>`).join('');
+  const axName = {W:'', C:' (°C, right)', R:' (RPM, right)'};
+  q('phLegend').innerHTML = ser.map(s=>{
+    const sw = s.dash ? `<span class="sw" style="background:none;border-top:2px dashed ${s.color};height:0;width:1.1em;vertical-align:.25em"></span>`
+                      : `<span class="sw" style="background:${s.color}"></span>`;
+    return `<span>${sw}${s.label}${(used.C||used.R)?axName[s.axis]:''}</span>`;
+  }).join('');
 
-  // hover tooltip
+  // hover tooltip: every visible value at the nearest bucket, grouped by axis
   const tip = q('phTip');
   svg.onmousemove = e=>{
-    if (!rows.length) return;
+    if (!rows.length || !ser.length) return;
     const rc = svg.getBoundingClientRect(), mx = (e.clientX-rc.left) * W / rc.width;
     let best = 0, bd = 1e9;
     rows.forEach((r,i)=>{ const d = Math.abs(xOf(i)-mx); if (d<bd){ bd=d; best=i; } });
     const r = rows[best], cx = xOf(best);
     const cl = q('phCursor'); cl.setAttribute('x1',cx); cl.setAttribute('x2',cx); cl.setAttribute('visibility','visible');
     let t = `<div style="color:#9aa0a8;margin-bottom:.15em">${fmtTip(r[0])}</div>`;
-    sp.series.slice().reverse().forEach(s=>{
-      const x = s.val(r); if (x===null) return;
-      t += `<div><span class="sw" style="background:${s.color}"></span>${s.label}: <b>${sp.unit==='RPM'?Math.round(x).toLocaleString():Number(x).toFixed(1)} ${sp.unit}</b>${s.extra?s.extra(r):''}</div>`;
+    ['W','C','R'].forEach((ax, n)=>{
+      const group = ser.filter(s=>s.axis===ax);
+      if (!group.length) return;
+      if (n && t.indexOf('<b>')>=0) t += `<div style="height:.3em"></div>`;
+      (ax==='W' ? group.slice().reverse() : group).forEach(s=>{
+        const x = s.val(r); if (x===null) return;
+        t += `<div><span class="sw" style="background:${s.color}"></span>${s.label}: <b>${valFmt(x, AX[ax].unit)} ${AX[ax].unit}</b>${s.extra?s.extra(r):''}</div>`;
+      });
+      if (ax==='W' && phOn.breakdown && !phOn.power && v(r,'pin')!==null)
+        t += `<div style="margin-top:.15em;color:#9aa0a8">Total at the wall: <b style="color:#e8eaed">${Number(v(r,'pin')).toFixed(1)} W</b></div>`;
     });
-    if (sp.stacked && v(r,'pin')!==null) t += `<div style="margin-top:.15em;color:#9aa0a8">Total at the wall: <b style="color:#e8eaed">${Number(v(r,'pin')).toFixed(1)} W</b></div>`;
     tip.innerHTML = t; tip.style.display = 'block';
     const px = cx / W * rc.width, tw = tip.offsetWidth;
     tip.style.left = Math.max(0, Math.min(rc.width - tw, px + 14 > rc.width - tw ? px - tw - 14 : px + 14)) + 'px';
@@ -1124,21 +1173,34 @@ function drawHist(){
   };
   svg.onmouseleave = ()=>{ tip.style.display='none'; const cl=q('phCursor'); if (cl) cl.setAttribute('visibility','hidden'); };
 
-  // summary line
+  // summary line for the layers that are on
   const st = phData.stats || {}, f0 = x => x===null||x===undefined ? '--' : Math.round(x).toLocaleString();
-  let sh = '';
-  if (phView==='temp')       sh = st.vrm ? `VRM <b>${st.vrm.avg.toFixed(1)}°C</b> avg · <b>${st.vrm.max.toFixed(1)}°C</b> peak` + (st.case ? ` &nbsp; Case <b>${st.case.avg.toFixed(1)}°C</b> avg · <b>${st.case.max.toFixed(1)}°C</b> peak` : '') : '';
-  else if (phView==='fans')  sh = (st.fan ? `PSU fan <b>${f0(st.fan.avg)} RPM</b> avg` : '') + (st.sfan ? ` &nbsp; System fans <b>${f0(st.sfan.avg)} RPM</b> avg` : '');
-  else {
-    if (st.pin)  sh += `Wall <b>${f0(st.pin.avg)} W</b> avg · <b>${f0(st.pin.max)} W</b> max`;
-    if (st.pout) sh += ` &nbsp; Output <b>${f0(st.pout.avg)} W</b> avg · <b>${f0(st.pout.max)} W</b> peak`;
-    if (phData.kwh!==null && phData.kwh!==undefined) sh += ` &nbsp; Used <b>${kwhFmt(phData.kwh)} kWh</b>` + (lastRate>0 ? ` (<b>${money(phData.kwh*lastRate)}</b>)` : '');
-    if (phView==='breakdown') { if (st.cpu) sh += ` &nbsp; CPU <b>${f0(st.cpu.avg)} W</b> avg`; if (st.gpu) sh += ` · GPU <b>${f0(st.gpu.avg)} W</b>`; if (st.drv) sh += ` · Drives ~<b>${f0(st.drv.avg)} W</b>`; }
+  const parts = [];
+  if (phOn.power || phOn.breakdown) {
+    let p = '';
+    if (st.pin)  p += `Wall <b>${f0(st.pin.avg)} W</b> avg · <b>${f0(st.pin.max)} W</b> max`;
+    if (st.pout) p += `${p?' &nbsp; ':''}Output <b>${f0(st.pout.avg)} W</b> avg · <b>${f0(st.pout.max)} W</b> peak`;
+    if (phData.kwh!==null && phData.kwh!==undefined) p += ` &nbsp; Used <b>${kwhFmt(phData.kwh)} kWh</b>` + (lastRate>0 ? ` (<b>${money(phData.kwh*lastRate)}</b>)` : '');
+    if (p) parts.push(p);
   }
-  q('phStats').innerHTML = sh;
-  q('phNote').textContent = phView==='breakdown'
-    ? 'CPU comes from the processor\'s own power counters (RAPL) and GPU from the graphics driver. Drives are estimated from how many are spun down, idle or busy, as disks have no power sensor. "Everything else" is the rest of the PSU output (motherboard, RAM, fans, CPU power-stage losses). PSU losses are the gap between wall and output. Together they add up to the wall draw.'
-    : (phView==='power' ? 'The PSU doesn\'t report wall power, so it\'s estimated from output power using the model\'s efficiency curve.' : '');
+  if (phOn.breakdown) {
+    const b = [];
+    if (st.cpu) b.push(`CPU <b>${f0(st.cpu.avg)} W</b>`); if (st.gpu) b.push(`GPU <b>${f0(st.gpu.avg)} W</b>`); if (st.drv) b.push(`Drives ~<b>${f0(st.drv.avg)} W</b>`);
+    if (b.length) parts.push(b.join(' · ') + ' avg');
+  }
+  if (phOn.temp && st.vrm) parts.push(`VRM <b>${st.vrm.avg.toFixed(1)}°C</b> avg · <b>${st.vrm.max.toFixed(1)}°C</b> peak` + (st.case ? ` · Case <b>${st.case.avg.toFixed(1)}°C</b> avg` : ''));
+  if (phOn.fans) {
+    const f = [];
+    if (st.fan)  f.push(`PSU fan <b>${f0(st.fan.avg)} RPM</b>`);
+    if (st.sfan) f.push(`System fans <b>${f0(st.sfan.avg)} RPM</b>`);
+    if (f.length) parts.push(f.join(' · ') + ' avg');
+  }
+  q('phStats').innerHTML = parts.join(' &nbsp;&nbsp; ');
+  const notes = [];
+  if (phOn.power) notes.push('The PSU doesn\'t report wall power, so it\'s estimated from output power using the model\'s efficiency curve.');
+  if (phOn.breakdown) notes.push('Breakdown: CPU comes from the processor\'s own power counters (RAPL) and GPU from the graphics driver. Drives are estimated from how many are spun down, idle or busy, as disks have no power sensor. "Everything else" is the rest of the PSU output (motherboard, RAM, fans, CPU power-stage losses). PSU losses are the gap between wall and output. Together they add up to the wall draw.');
+  if (phOn.temp || phOn.fans) notes.push('Temperature (°C) and fan speed (RPM) use their own scales on the right, drawn as dashed and dotted lines.');
+  q('phNote').textContent = notes.join(' ');
 }
 
 function loadHist(){
@@ -1146,14 +1208,15 @@ function loadHist(){
 }
 function phButtons(){
   document.querySelectorAll('#phRange [data-r]').forEach(b=>b.classList.toggle('active', b.dataset.r===phRange));
-  document.querySelectorAll('#phRange [data-v]').forEach(b=>b.classList.toggle('active', b.dataset.v===phView));
+  document.querySelectorAll('#phRange [data-v]').forEach(b=>{ b.classList.toggle('active', !!phOn[b.dataset.v]); b.setAttribute('aria-pressed', phOn[b.dataset.v]?'true':'false'); });
 }
 document.querySelectorAll('#phRange [data-r]').forEach(b=>b.onclick = ()=>{
   phRange = b.dataset.r; try { localStorage.setItem('cpc2Range', phRange); } catch(e){}
   phButtons(); loadHist();
 });
 document.querySelectorAll('#phRange [data-v]').forEach(b=>b.onclick = ()=>{
-  phView = b.dataset.v; try { localStorage.setItem('cpc2View', phView); } catch(e){}
+  phOn[b.dataset.v] = !phOn[b.dataset.v];
+  try { localStorage.setItem('cpc2Layers', JSON.stringify(phOn)); } catch(e){}
   phButtons(); drawHist();
 });
 window.addEventListener('resize', ()=>{ clearTimeout(window._cpcRs); window._cpcRs = setTimeout(()=>{ drawHist(); drawDaily(); }, 150); });

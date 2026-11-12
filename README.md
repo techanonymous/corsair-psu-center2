@@ -25,18 +25,22 @@ in its own tab.
 
 ### New in v2
 
-**Power history graph** - wall power and PSU output over the last **1h, 6h, 12h, 24h,
-7d, 30d or 365d**, with average, peak, kWh used and cost for the range. Hover for exact
-values. Other views:
+**Power history graph** - one chart over the last **1h, 6h, 12h, 24h, 7d, 30d or 365d**,
+with four layers you switch on and off independently, so you can line them up and spot
+correlations (say, power draw against fan speed). Watts use the left axis, °C and RPM get
+their own scales on the right, and hovering shows every visible value at that moment. The
+layers you pick are remembered per browser.
 
+- **Power** - wall power and PSU output, with average, peak, kWh used and cost for the range.
 - **Breakdown** - a stacked graph of what's driving the PSU's draw: **CPU** (measured
   from the processor's RAPL power counters, Intel and AMD), **GPU** (measured, from
   `nvidia-smi` or the `amdgpu` driver), **drives** (estimated from how many disks are
   spun down, idle or busy, since disks have no power sensor), **everything else**
   (motherboard, RAM, fans, CPU power-stage losses) and **PSU losses** (wall minus output).
   Together they add up to the wall draw. Sources your system doesn't have are left out.
-- **Temperature** - VRM (average and peak) and case temperature in °C.
-- **Fans** - PSU fan RPM, plus the average of your system fans and how many there are.
+- **Temperature** - VRM and case temperature in °C (dashed lines).
+- **Fans** - PSU fan RPM, plus one average line for your system fans. Hover it to see how
+  many spinning fans make up the average (dotted lines).
 
 **Daily Energy chart** - kWh per day for the last 30 or 90 days, or per month for the
 last 12 months, with cost on hover. It's built from the daily data the plugin already
