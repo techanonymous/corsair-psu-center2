@@ -270,21 +270,28 @@ function hist_add(&$h, $ts, $s) {
 
 /* Load the newest of the RAM and flash copies (the flash copy has no t10 tier). */
 function hist_load() {
-    $best = hist_empty();
+    $cands = [];
     foreach ([CPC_HIST_FLASH, CPC_HIST_RAM] as $path) {
         if (!file_exists($path)) continue;
         $j = @json_decode(@file_get_contents($path), true);
-        if (!is_array($j) || !isset($j['tiers']) || ($j['saved'] ?? 0) < $best['saved']) continue;
+        if (!is_array($j) || !isset($j['tiers'])) continue;
         $h = hist_empty();
-        $h['saved'] = (int)$j['saved'];
+        $h['saved'] = (int)($j['saved'] ?? 0);
         foreach (HIST_TIERS as $step => $keep) {
             if (isset($j['tiers'][$step]['rows']) && is_array($j['tiers'][$step]['rows']))
                 $h['tiers'][$step]['rows'] = $j['tiers'][$step]['rows'];
             if (isset($j['tiers'][$step]['cur']) && is_array($j['tiers'][$step]['cur']))
                 $h['tiers'][$step]['cur'] = $j['tiers'][$step]['cur'];
         }
-        $best = $h;
+        $cands[] = $h;
     }
+    if (!$cands) return hist_empty();
+    usort($cands, function ($a, $b) { return $b['saved'] - $a['saved']; });   // newest first
+    $best = $cands[0];
+    // The flash copy never carries the 10 s tier, so after a restart it can be the
+    // newest copy with that tier empty - take the tier from the RAM copy instead.
+    if (!$best['tiers'][10]['rows'])
+        foreach ($cands as $c) if ($c['tiers'][10]['rows']) { $best['tiers'][10] = $c['tiers'][10]; break; }
     return $best;
 }
 

@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "corsairpsucenter2">
 <!ENTITY author    "techanonymous">
-<!ENTITY version   "2026.11.11a">
+<!ENTITY version   "2026.11.12a">
 <!ENTITY launch    "CorsairPSUCenter2">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/techanonymous/corsair-psu-center2/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY source    "&gitURL;/archive/&name;-&version;-x86_64.txz">
-<!ENTITY md5       "6f46b41717b32ddeee1fbe95ae76f321">
+<!ENTITY md5       "819fa224bc432b9189a4457b3202229d">
 <!ENTITY plugdir   "/boot/config/plugins/&name;">
 <!ENTITY oldname   "corsairpsucenter">
 <!ENTITY olddir    "/boot/config/plugins/&oldname;">
@@ -23,6 +23,15 @@
         support="https://github.com/techanonymous/corsair-psu-center2/issues">
 
 <CHANGES>
+###2026.11.12a
+- Fixed: restarting the plugin's collector (an update, a reinstall) no longer
+  blanks the last hour of the 1h graph. Longer ranges were never affected.
+###2026.11.12
+- Changed: Power, Breakdown, Temperature and Fans on the Power History graph are
+  now on/off layers on one chart, so you can show any combination together and
+  see how power, temperatures and fan speeds move together. Watts use the left
+  axis; temperature and RPM get their own scales on the right. Hover shows every
+  visible value, and your layer choice is remembered.
 ###2026.11.11a
 - New: Daily Energy bar chart - kWh per day for the last 30 or 90 days, or per
   month for the last 12 months, with cost on hover.

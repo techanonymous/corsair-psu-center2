@@ -109,6 +109,10 @@ ok(hist_range('bogus', $now)['range'] === '24h', 'bad range -> 24h');
 hist_save($h, true);
 $fj = json_decode(file_get_contents(CPC_HIST_FLASH), true);
 ok(!isset($fj['tiers'][10]) && isset($fj['tiers'][60]), 'flash copy drops t10');
+// a restart writes flash after RAM: the 10 s tier must still come back from RAM
+hist_save($h); sleep(1); hist_save($h, true);
+$re = hist_load();
+ok(count($re['tiers'][10]['rows']) > 300 && count($re['tiers'][60]['rows']) === 719, 't10 survives a newer flash copy');
 
 // ---- alerts ----
 $c = alert_config(['mode' => 'auto']);
